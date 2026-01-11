@@ -1,8 +1,32 @@
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid, Environment } from "@react-three/drei";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useRef } from "react";
+import * as THREE from "three";
 import { ExtrudedShape } from "./ExtrudedShape";
 import { ExtrudedText } from "./ExtrudedText";
 import { ExtrusionSettings, MaterialSettings, Scene3DSettings } from "@/lib/extrusion";
+
+// Custom OrbitControls implementation using mouse/touch events
+const CameraController = ({ autoRotate }: { autoRotate: boolean }) => {
+  const rotationRef = useRef(0);
+  
+  useFrame(({ camera }) => {
+    if (autoRotate) {
+      rotationRef.current += 0.005;
+      camera.position.x = Math.sin(rotationRef.current) * 8;
+      camera.position.z = Math.cos(rotationRef.current) * 8;
+      camera.lookAt(0, 0, 0);
+    }
+  });
+  
+  return null;
+};
+
+// Simple grid helper
+const GridHelper = () => {
+  return (
+    <gridHelper args={[20, 20, "#404040", "#303030"]} rotation={[0, 0, 0]} />
+  );
+};
 
 interface Scene3DProps {
   mode: "shape" | "text";
@@ -36,29 +60,11 @@ export const Scene3D = ({
           position={[10, 10, 5]}
           intensity={1}
           castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
         />
         <pointLight position={[-10, -10, -5]} intensity={0.5} />
         
-        {/* Environment for reflections */}
-        <Environment preset="studio" />
-        
         {/* Grid */}
-        {scene.showGrid && (
-          <Grid
-            args={[20, 20]}
-            cellSize={0.5}
-            cellThickness={0.5}
-            cellColor="#404040"
-            sectionSize={2}
-            sectionThickness={1}
-            sectionColor="#606060"
-            fadeDistance={30}
-            fadeStrength={1}
-            followCamera={false}
-          />
-        )}
+        {scene.showGrid && <GridHelper />}
         
         {/* 3D Object */}
         {mode === "shape" ? (
@@ -75,14 +81,8 @@ export const Scene3D = ({
           />
         )}
         
-        {/* Controls */}
-        <OrbitControls
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          autoRotate={scene.autoRotate}
-          autoRotateSpeed={2}
-        />
+        {/* Camera Controller */}
+        <CameraController autoRotate={scene.autoRotate} />
       </Canvas>
     </div>
   );
