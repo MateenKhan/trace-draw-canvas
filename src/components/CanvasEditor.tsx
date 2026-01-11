@@ -208,8 +208,8 @@ const CanvasEditor = () => {
           />
 
           {/* Canvas container */}
-          <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px] touch-none">
-            <canvas ref={canvasRef} className="max-w-full max-h-full touch-none" />
+          <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px]" style={{ touchAction: 'none' }}>
+            <canvas ref={canvasRef} className="max-w-full max-h-full" />
             
             {/* SVG overlay */}
             {svgContent && showSvgOverlay && hasImage && (

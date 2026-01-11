@@ -48,72 +48,71 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     // Track pinch gesture for touch devices
     let lastDistance = 0;
     let isPinching = false;
+    let lastCenter = { x: 0, y: 0 };
+
+    const getDistance = (t1: Touch, t2: Touch) => 
+      Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+    const getCenter = (t1: Touch, t2: Touch) => ({
+      x: (t1.clientX + t2.clientX) / 2,
+      y: (t1.clientY + t2.clientY) / 2,
+    });
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
+        e.preventDefault();
         isPinching = true;
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        lastDistance = Math.hypot(
-          touch2.clientX - touch1.clientX,
-          touch2.clientY - touch1.clientY
-        );
+        lastDistance = getDistance(e.touches[0], e.touches[1]);
+        lastCenter = getCenter(e.touches[0], e.touches[1]);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (isPinching && e.touches.length === 2) {
-        e.preventDefault();
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const distance = Math.hypot(
-          touch2.clientX - touch1.clientX,
-          touch2.clientY - touch1.clientY
-        );
+      if (!isPinching || e.touches.length !== 2) return;
+      e.preventDefault();
 
-        if (lastDistance > 0) {
-          const scale = distance / lastDistance;
-          let newZoom = fabricCanvas.getZoom() * scale;
-          
-          // Clamp zoom
-          newZoom = Math.max(0.1, Math.min(5, newZoom));
-          
-          // Get center point between fingers
-          const centerX = (touch1.clientX + touch2.clientX) / 2;
-          const centerY = (touch1.clientY + touch2.clientY) / 2;
-          
-          const rect = canvasRef.current?.getBoundingClientRect();
-          if (rect) {
-            const point = {
-              x: centerX - rect.left,
-              y: centerY - rect.top,
-            };
-            fabricCanvas.zoomToPoint(point as any, newZoom);
-            setZoom(newZoom);
-          }
+      const distance = getDistance(e.touches[0], e.touches[1]);
+      const center = getCenter(e.touches[0], e.touches[1]);
+
+      if (lastDistance > 0) {
+        const scale = distance / lastDistance;
+        let newZoom = fabricCanvas.getZoom() * scale;
+        newZoom = Math.max(0.1, Math.min(5, newZoom));
+
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          const point = { x: center.x - rect.left, y: center.y - rect.top };
+          fabricCanvas.zoomToPoint(point as any, newZoom);
+          setZoom(newZoom);
         }
-        
-        lastDistance = distance;
+      }
+
+      lastDistance = distance;
+      lastCenter = center;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        isPinching = false;
+        lastDistance = 0;
       }
     };
 
-    const handleTouchEnd = () => {
-      isPinching = false;
-      lastDistance = 0;
-    };
-
-    const canvasEl = canvasRef.current;
-    canvasEl?.addEventListener("touchstart", handleTouchStart, { passive: false });
-    canvasEl?.addEventListener("touchmove", handleTouchMove, { passive: false });
-    canvasEl?.addEventListener("touchend", handleTouchEnd);
+    // Use the upper-level wrapper element for better touch capture
+    const wrapperEl = canvasRef.current?.parentElement;
+    wrapperEl?.addEventListener("touchstart", handleTouchStart, { passive: false });
+    wrapperEl?.addEventListener("touchmove", handleTouchMove, { passive: false });
+    wrapperEl?.addEventListener("touchend", handleTouchEnd);
+    wrapperEl?.addEventListener("touchcancel", handleTouchEnd);
 
     fabricCanvasRef.current = fabricCanvas;
     setCanvas(fabricCanvas);
 
     return () => {
-      canvasEl?.removeEventListener("touchstart", handleTouchStart);
-      canvasEl?.removeEventListener("touchmove", handleTouchMove);
-      canvasEl?.removeEventListener("touchend", handleTouchEnd);
+      wrapperEl?.removeEventListener("touchstart", handleTouchStart);
+      wrapperEl?.removeEventListener("touchmove", handleTouchMove);
+      wrapperEl?.removeEventListener("touchend", handleTouchEnd);
+      wrapperEl?.removeEventListener("touchcancel", handleTouchEnd);
       fabricCanvas.dispose();
       fabricCanvasRef.current = null;
     };
