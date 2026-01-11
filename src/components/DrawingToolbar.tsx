@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import {
   MousePointer2,
   Move,
+  Hand,
   Pen,
   Pencil,
   Minus,
@@ -14,10 +15,11 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Download,
   Upload,
   Sparkles,
   Trash2,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool } from "@/lib/types";
@@ -27,6 +29,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ExportMenu } from "@/components/ExportMenu";
+import { Canvas as FabricCanvas } from "fabric";
 
 interface DrawingToolbarProps {
   activeTool: DrawingTool;
@@ -36,16 +40,19 @@ interface DrawingToolbarProps {
   onReset: () => void;
   onUpload: () => void;
   onTrace: () => void;
-  onExport: () => void;
   onClear: () => void;
+  onFullscreen: () => void;
   hasImage: boolean;
   hasSvg: boolean;
   isTracing: boolean;
+  isFullscreen: boolean;
+  canvas: FabricCanvas | null;
+  svgContent: string | null;
 }
 
 const navigationTools = [
   { id: 'select' as DrawingTool, icon: MousePointer2, label: 'Select (V)', shortcut: 'V' },
-  { id: 'pan' as DrawingTool, icon: Move, label: 'Pan (H)', shortcut: 'H' },
+  { id: 'pan' as DrawingTool, icon: Hand, label: 'Pan (H)', shortcut: 'H' },
 ];
 
 const drawingTools = [
@@ -77,11 +84,14 @@ export const DrawingToolbar = ({
   onReset,
   onUpload,
   onTrace,
-  onExport,
   onClear,
+  onFullscreen,
   hasImage,
   hasSvg,
   isTracing,
+  isFullscreen,
+  canvas,
+  svgContent,
 }: DrawingToolbarProps) => {
   const renderToolGroup = (tools: typeof navigationTools, borderRight = true) => (
     <div className={cn("flex items-center gap-0.5", borderRight && "pr-1.5 md:pr-2 border-r border-panel-border")}>
@@ -135,6 +145,19 @@ export const DrawingToolbar = ({
         <Button variant="toolbar" size="icon" className="w-8 h-8 md:w-9 md:h-9" onClick={onReset} title="Reset View">
           <RotateCcw className="w-3.5 h-3.5 md:w-4 md:h-4" />
         </Button>
+        <Button 
+          variant="toolbar" 
+          size="icon" 
+          className="w-8 h-8 md:w-9 md:h-9" 
+          onClick={onFullscreen} 
+          title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+        >
+          {isFullscreen ? (
+            <Minimize className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          ) : (
+            <Maximize className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          )}
+        </Button>
       </div>
 
       {/* File actions */}
@@ -175,16 +198,12 @@ export const DrawingToolbar = ({
           <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
           <span className="hidden xs:inline">{isTracing ? "Tracing..." : "Trace"}</span>
         </Button>
-        <Button
-          variant="panel"
-          size="sm"
-          onClick={onExport}
-          disabled={!hasSvg}
-          className="gap-1.5 md:gap-2 font-mono text-[10px] md:text-xs h-8 md:h-9 px-2 md:px-3"
-        >
-          <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          <span className="hidden sm:inline">Export</span>
-        </Button>
+        
+        <ExportMenu 
+          canvas={canvas} 
+          svgContent={svgContent} 
+          disabled={!hasImage && !hasSvg}
+        />
       </div>
     </div>
   );

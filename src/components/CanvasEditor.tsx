@@ -43,7 +43,9 @@ const CanvasEditor = () => {
   // UI state
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [activePanel, setActivePanel] = useState<"properties" | "trace">("properties");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Canvas hook
   const {
@@ -218,6 +220,17 @@ const CanvasEditor = () => {
     toast.success("Canvas cleared");
   }, [clearCanvas]);
 
+  // Fullscreen toggle
+  const handleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -271,7 +284,7 @@ const CanvasEditor = () => {
   }, [enableDrawingMode, handleToolChange, deleteSelected]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div ref={containerRef} className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-panel-border glass">
         <div className="flex items-center gap-2 md:gap-3">
@@ -400,11 +413,14 @@ const CanvasEditor = () => {
             onReset={resetView}
             onUpload={handleUploadClick}
             onTrace={handleTrace}
-            onExport={handleExport}
             onClear={handleClear}
+            onFullscreen={handleFullscreen}
             hasImage={hasImage}
             hasSvg={!!svgContent}
             isTracing={isTracing}
+            isFullscreen={isFullscreen}
+            canvas={canvas}
+            svgContent={svgContent}
           />
 
           {/* Canvas container */}
