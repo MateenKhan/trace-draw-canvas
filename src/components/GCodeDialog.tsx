@@ -70,14 +70,29 @@ export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
     const handleExportGCode = useCallback((gcode: string) => {
       const blob = new Blob([gcode], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
+      
+      // Create a proper download link that works on mobile
       const link = document.createElement("a");
       link.href = url;
       link.download = "toolpath.gcode";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success("G-code exported successfully");
+      link.style.display = "none";
+      
+      // For iOS Safari, we need to use a different approach
+      const isSafariMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /Safari/i.test(navigator.userAgent);
+      
+      if (isSafariMobile) {
+        // Open in new tab for iOS Safari
+        window.open(url, "_blank");
+        toast.success("G-code opened in new tab - use Share > Save to Files");
+      } else {
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("G-code exported successfully");
+      }
+      
+      // Cleanup after a delay to ensure download starts
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     }, []);
 
     const toolPaths = getToolPaths();
