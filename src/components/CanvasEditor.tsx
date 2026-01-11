@@ -445,6 +445,9 @@ const CanvasEditor = () => {
             isFullscreen={isFullscreen}
             canvas={canvas}
             svgContent={svgContent}
+            brushSize={stroke.width}
+            onBrushSizeChange={(size) => handleStrokeChange({ ...stroke, width: size })}
+            strokeColor={stroke.color}
           />
           <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px]" style={{ touchAction: 'none' }}>
             <canvas ref={canvasRef} className="max-w-full max-h-full" style={{ touchAction: 'none' }} />

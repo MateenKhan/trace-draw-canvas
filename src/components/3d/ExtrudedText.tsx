@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { ExtrudeGeometry, Shape } from "three";
+import { MeshStandardMaterial, Shape } from "three";
 import { FontLoader, Font } from "three/examples/jsm/loaders/FontLoader.js";
 import { ExtrusionSettings, MaterialSettings } from "@/lib/extrusion";
 
@@ -33,19 +33,22 @@ export const ExtrudedText = ({ text, extrusion, material }: ExtrudedTextProps) =
     bevelSegments: extrusion.bevelSegments,
   }), [extrusion]);
 
+  const meshMaterial = useMemo(() => {
+    return new MeshStandardMaterial({
+      color: material.color,
+      metalness: material.metalness,
+      roughness: material.roughness,
+      wireframe: material.wireframe,
+    });
+  }, [material]);
+
   if (!font || shapes.length === 0) {
     return null;
   }
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-text.length * 0.3, 0, 0]} castShadow receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-text.length * 0.3, 0, 0]} castShadow receiveShadow material={meshMaterial}>
       <extrudeGeometry args={[shapes, extrudeSettings]} />
-      <meshStandardMaterial
-        color={material.color}
-        metalness={material.metalness}
-        roughness={material.roughness}
-        wireframe={material.wireframe}
-      />
     </mesh>
   );
 };

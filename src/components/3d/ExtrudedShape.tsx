@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Shape, ExtrudeGeometry } from "three";
+import { Shape, MeshStandardMaterial } from "three";
 import { ExtrusionSettings, MaterialSettings } from "@/lib/extrusion";
 
 interface ExtrudedShapeProps {
@@ -58,15 +58,18 @@ export const ExtrudedShape = ({ shapeType, extrusion, material }: ExtrudedShapeP
     bevelSegments: extrusion.bevelSegments,
   }), [extrusion]);
 
+  const meshMaterial = useMemo(() => {
+    return new MeshStandardMaterial({
+      color: material.color,
+      metalness: material.metalness,
+      roughness: material.roughness,
+      wireframe: material.wireframe,
+    });
+  }, [material]);
+
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow material={meshMaterial}>
       <extrudeGeometry args={[shape, extrudeSettings]} />
-      <meshStandardMaterial
-        color={material.color}
-        metalness={material.metalness}
-        roughness={material.roughness}
-        wireframe={material.wireframe}
-      />
     </mesh>
   );
 };
