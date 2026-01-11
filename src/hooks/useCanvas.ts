@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, FabricImage, Point } from "fabric";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Canvas as FabricCanvas, FabricImage } from "fabric";
 
 interface UseCanvasOptions {
   width?: number;
