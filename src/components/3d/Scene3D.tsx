@@ -21,10 +21,32 @@ const CameraController = ({ autoRotate }: { autoRotate: boolean }) => {
   return null;
 };
 
-// Simple grid helper
-const GridHelper = () => {
+// 3D Grid helper - shows grid on XZ, XY, and YZ planes
+const Grid3D = () => {
+  const gridSize = 10;
+  const gridDivisions = 10;
+  const primaryColor = "#505050";
+  const secondaryColor = "#353535";
+  
   return (
-    <gridHelper args={[20, 20, "#404040", "#303030"]} rotation={[0, 0, 0]} />
+    <group>
+      {/* XZ plane (floor) */}
+      <gridHelper args={[gridSize, gridDivisions, primaryColor, secondaryColor]} />
+      
+      {/* XY plane (back wall) */}
+      <gridHelper 
+        args={[gridSize, gridDivisions, primaryColor, secondaryColor]} 
+        rotation={[Math.PI / 2, 0, 0]}
+        position={[0, gridSize / 2, -gridSize / 2]}
+      />
+      
+      {/* YZ plane (side wall) */}
+      <gridHelper 
+        args={[gridSize, gridDivisions, primaryColor, secondaryColor]} 
+        rotation={[0, 0, Math.PI / 2]}
+        position={[-gridSize / 2, gridSize / 2, 0]}
+      />
+    </group>
   );
 };
 
@@ -63,8 +85,8 @@ export const Scene3D = ({
         />
         <pointLight position={[-10, -10, -5]} intensity={0.5} />
         
-        {/* Grid */}
-        {scene.showGrid && <GridHelper />}
+        {/* 3D Grid */}
+        {scene.showGrid && <Grid3D />}
         
         {/* 3D Object */}
         {mode === "shape" ? (

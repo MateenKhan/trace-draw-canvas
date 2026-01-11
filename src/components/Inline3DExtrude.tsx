@@ -83,10 +83,34 @@ const CameraController = ({
   return null;
 };
 
-// Grid helper
-const GridHelper = () => (
-  <gridHelper args={[20, 20, "#404040", "#303030"]} />
-);
+// 3D Grid helper - shows grid on XZ, XY, and YZ planes
+const Grid3D = () => {
+  const gridSize = 10;
+  const gridDivisions = 10;
+  const primaryColor = "#505050";
+  const secondaryColor = "#353535";
+  
+  return (
+    <group>
+      {/* XZ plane (floor) */}
+      <gridHelper args={[gridSize, gridDivisions, primaryColor, secondaryColor]} />
+      
+      {/* XY plane (back wall) */}
+      <gridHelper 
+        args={[gridSize, gridDivisions, primaryColor, secondaryColor]} 
+        rotation={[Math.PI / 2, 0, 0]}
+        position={[0, gridSize / 2, -gridSize / 2]}
+      />
+      
+      {/* YZ plane (side wall) */}
+      <gridHelper 
+        args={[gridSize, gridDivisions, primaryColor, secondaryColor]} 
+        rotation={[0, 0, Math.PI / 2]}
+        position={[-gridSize / 2, gridSize / 2, 0]}
+      />
+    </group>
+  );
+};
 
 // Extruded shape from canvas
 const ExtrudedCanvasShape = ({ 
@@ -506,8 +530,8 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
             <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
             <pointLight position={[-10, -10, -5]} intensity={0.5} color="#00d4ff" />
             
-            {/* Grid */}
-            <GridHelper />
+            {/* 3D Grid */}
+            <Grid3D />
             
             {/* Canvas shapes or sample shapes */}
             {hasCanvasShapes && !showSamples ? (
