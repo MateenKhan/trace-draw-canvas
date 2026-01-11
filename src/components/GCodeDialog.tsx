@@ -5,10 +5,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { GCodePanel } from "@/components/GCodePanel";
 import { ToolPath, pathToPoints, PathPoint } from "@/lib/gcode";
 import { Canvas as FabricCanvas } from "fabric";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SimulationState {
   isPlaying: boolean;
@@ -27,6 +34,8 @@ interface GCodeDialogProps {
 
 export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
   ({ open, onOpenChange, canvas, onSimulationChange }, ref) => {
+    const isMobile = useIsMobile();
+    
     // Extract toolpaths from canvas objects
     const getToolPaths = useCallback((): ToolPath[] => {
       if (!canvas) return [];
@@ -73,6 +82,43 @@ export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
 
     const toolPaths = getToolPaths();
 
+    const content = (
+      <>
+        <GCodePanel 
+          toolPaths={toolPaths} 
+          onExportGCode={handleExportGCode}
+          onSimulationChange={onSimulationChange}
+        />
+        {toolPaths.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Add shapes to the canvas to generate toolpaths
+          </p>
+        )}
+      </>
+    );
+
+    // Use Sheet on mobile (slides up from bottom, partial height)
+    if (isMobile) {
+      return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+          <SheetContent 
+            side="bottom" 
+            className="h-[50vh] overflow-y-auto rounded-t-xl"
+          >
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <span className="text-lg font-semibold">G-Code Generator</span>
+              </SheetTitle>
+            </SheetHeader>
+            <div className="mt-2 pb-4">
+              {content}
+            </div>
+          </SheetContent>
+        </Sheet>
+      );
+    }
+
+    // Use Dialog on desktop
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent ref={ref} className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -82,16 +128,7 @@ export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
             </DialogTitle>
           </DialogHeader>
           <div className="mt-2">
-            <GCodePanel 
-              toolPaths={toolPaths} 
-              onExportGCode={handleExportGCode}
-              onSimulationChange={onSimulationChange}
-            />
-            {toolPaths.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Add shapes to the canvas to generate toolpaths
-              </p>
-            )}
+            {content}
           </div>
         </DialogContent>
       </Dialog>

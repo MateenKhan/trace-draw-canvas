@@ -372,18 +372,24 @@ const CanvasEditor = () => {
                 <div dangerouslySetInnerHTML={{ __html: svgContent }} className="max-w-full max-h-full w-full h-full [&_svg]:w-full [&_svg]:h-full" style={{ width: canvas?.getWidth(), height: canvas?.getHeight() }} />
               </div>
             )}
-            
-            {/* G-code toolpath overlay */}
-            <ToolpathOverlay
-              toolPaths={toolPaths}
-              progress={simulationState.progress}
-              currentPoint={simulationState.currentPoint}
-              isPlaying={simulationState.isPlaying}
-              width={canvas?.getWidth() || 800}
-              height={canvas?.getHeight() || 600}
-              show={simulationState.showOverlay && showGCodePanel}
-            />
           </div>
+          
+          {/* G-code toolpath overlay - positioned outside canvas container for mobile visibility */}
+          {simulationState.showOverlay && showGCodePanel && (
+            <div className="absolute inset-0 pointer-events-none z-[60]">
+              <div className="relative w-full h-full flex items-center justify-center">
+                <ToolpathOverlay
+                  toolPaths={toolPaths}
+                  progress={simulationState.progress}
+                  currentPoint={simulationState.currentPoint}
+                  isPlaying={simulationState.isPlaying}
+                  width={canvas?.getWidth() || 800}
+                  height={canvas?.getHeight() || 600}
+                  show={true}
+                />
+              </div>
+            </div>
+          )}
         </main>
 
         {/* Right Sidebar - Layers Panel */}
