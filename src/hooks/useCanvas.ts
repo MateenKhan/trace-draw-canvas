@@ -45,9 +45,10 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       opt.e.stopPropagation();
     });
 
-    // Track pinch gesture for touch devices
+    // Track pinch gesture and two-finger pan for touch devices
     let lastDistance = 0;
     let isPinching = false;
+    let isPanning = false;
     let lastCenter = { x: 0, y: 0 };
 
     const getDistance = (t1: Touch, t2: Touch) => 
@@ -62,29 +63,44 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       if (e.touches.length === 2) {
         e.preventDefault();
         isPinching = true;
+        isPanning = true;
         lastDistance = getDistance(e.touches[0], e.touches[1]);
         lastCenter = getCenter(e.touches[0], e.touches[1]);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isPinching || e.touches.length !== 2) return;
+      if (e.touches.length !== 2) return;
       e.preventDefault();
 
       const distance = getDistance(e.touches[0], e.touches[1]);
       const center = getCenter(e.touches[0], e.touches[1]);
 
-      if (lastDistance > 0) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      // Two-finger pan
+      if (isPanning && lastCenter.x !== 0 && lastCenter.y !== 0) {
+        const deltaX = center.x - lastCenter.x;
+        const deltaY = center.y - lastCenter.y;
+        
+        const vpt = fabricCanvas.viewportTransform;
+        if (vpt) {
+          vpt[4] += deltaX;
+          vpt[5] += deltaY;
+          fabricCanvas.setViewportTransform(vpt);
+        }
+      }
+
+      // Pinch to zoom
+      if (isPinching && lastDistance > 0) {
         const scale = distance / lastDistance;
         let newZoom = fabricCanvas.getZoom() * scale;
         newZoom = Math.max(0.1, Math.min(5, newZoom));
 
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (rect) {
-          const point = { x: center.x - rect.left, y: center.y - rect.top };
-          fabricCanvas.zoomToPoint(point as any, newZoom);
-          setZoom(newZoom);
-        }
+        const point = { x: center.x - rect.left, y: center.y - rect.top };
+        fabricCanvas.zoomToPoint(point as any, newZoom);
+        setZoom(newZoom);
       }
 
       lastDistance = distance;
@@ -94,7 +110,9 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) {
         isPinching = false;
+        isPanning = false;
         lastDistance = 0;
+        lastCenter = { x: 0, y: 0 };
       }
     };
 
