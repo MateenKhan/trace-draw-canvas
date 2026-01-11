@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import {
   MousePointer2,
-  Move,
   Hand,
   Pen,
   Pencil,
@@ -23,6 +22,7 @@ import {
   Minimize,
   Cog,
   Box,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool } from "@/lib/types";
@@ -62,30 +62,31 @@ interface DrawingToolbarProps {
   strokeColor: string;
 }
 
-const navigationTools = [
-  { id: 'select' as DrawingTool, icon: MousePointer2, label: 'Select (V)', shortcut: 'V' },
-  { id: 'pan' as DrawingTool, icon: Hand, label: 'Pan (H)', shortcut: 'H' },
+// Selection & Navigation tools
+const selectionTools = [
+  { id: 'select' as DrawingTool, icon: MousePointer2, label: 'Select (V)' },
+  { id: 'pan' as DrawingTool, icon: Hand, label: 'Pan (H)' },
 ];
 
+// Drawing tools
 const drawingTools = [
-  { id: 'pen' as DrawingTool, icon: Pen, label: 'Pen Tool (P)', shortcut: 'P' },
-  { id: 'pencil' as DrawingTool, icon: Pencil, label: 'Pencil (B)', shortcut: 'B' },
+  { id: 'pen' as DrawingTool, icon: Pen, label: 'Pen (P)' },
+  { id: 'pencil' as DrawingTool, icon: Pencil, label: 'Pencil (B)' },
 ];
 
+// Shape tools
 const shapeTools = [
-  { id: 'line' as DrawingTool, icon: Minus, label: 'Line (L)', shortcut: 'L' },
-  { id: 'rectangle' as DrawingTool, icon: Square, label: 'Rectangle (R)', shortcut: 'R' },
-  { id: 'ellipse' as DrawingTool, icon: Circle, label: 'Ellipse (O)', shortcut: 'O' },
-  { id: 'polygon' as DrawingTool, icon: Hexagon, label: 'Polygon (Y)', shortcut: 'Y' },
+  { id: 'line' as DrawingTool, icon: Minus, label: 'Line (L)' },
+  { id: 'rectangle' as DrawingTool, icon: Square, label: 'Rectangle (R)' },
+  { id: 'ellipse' as DrawingTool, icon: Circle, label: 'Ellipse (O)' },
+  { id: 'polygon' as DrawingTool, icon: Hexagon, label: 'Polygon (Y)' },
 ];
 
-const textTools = [
-  { id: 'text' as DrawingTool, icon: Type, label: 'Text (T)', shortcut: 'T' },
-];
-
-const imageTools = [
-  { id: 'crop' as DrawingTool, icon: Crop, label: 'Crop (C)', shortcut: 'C' },
-  { id: 'transform' as DrawingTool, icon: Move3D, label: 'Transform (E)', shortcut: 'E' },
+// Object tools
+const objectTools = [
+  { id: 'text' as DrawingTool, icon: Type, label: 'Text (T)' },
+  { id: 'crop' as DrawingTool, icon: Crop, label: 'Crop (C)' },
+  { id: 'transform' as DrawingTool, icon: Move3D, label: 'Transform (E)' },
 ];
 
 export const DrawingToolbar = ({
@@ -114,176 +115,145 @@ export const DrawingToolbar = ({
   strokeColor,
 }: DrawingToolbarProps) => {
   const isPenOrPencil = activeTool === 'pen' || activeTool === 'pencil';
-  const renderToolGroup = (tools: typeof navigationTools, borderRight = true) => (
-    <div className={cn("flex items-center gap-0.5", borderRight && "pr-1.5 md:pr-2 border-r border-panel-border")}>
-      {tools.map((tool) => (
-        <TooltipProvider key={tool.id} delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={activeTool === tool.id ? "toolbar-active" : "toolbar"}
-                size="icon"
-                className="w-8 h-8 md:w-9 md:h-9"
-                onClick={() => onToolChange(tool.id)}
-              >
-                <tool.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              <span>{tool.label}</span>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ))}
-    </div>
+
+  const ToolButton = ({ tool, isActive }: { tool: typeof selectionTools[0]; isActive: boolean }) => (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={isActive ? "toolbar-active" : "toolbar"}
+            size="icon"
+            className="w-10 h-10"
+            onClick={() => onToolChange(tool.id)}
+          >
+            <tool.icon className="w-5 h-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {tool.label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
+  const ActionButton = ({ icon: Icon, label, onClick, disabled, active, className }: {
+    icon: typeof Upload;
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    active?: boolean;
+    className?: string;
+  }) => (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={active ? "toolbar-active" : "toolbar"}
+            size="icon"
+            className={cn("w-10 h-10", className)}
+            onClick={onClick}
+            disabled={disabled}
+          >
+            <Icon className="w-5 h-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-1 p-1.5 md:p-2 glass rounded-xl border border-panel-border animate-fade-in">
-        {/* Navigation tools */}
-        {renderToolGroup(navigationTools)}
+      {/* Brush size slider - shown when pen/pencil is active */}
+      <BrushSizeSlider
+        size={brushSize}
+        onChange={onBrushSizeChange}
+        isVisible={isPenOrPencil}
+        strokeColor={strokeColor}
+      />
 
-        {/* Drawing tools */}
-        {renderToolGroup(drawingTools)}
+      {/* Main bottom toolbar */}
+      <div className="flex items-center justify-center gap-1 p-2 glass rounded-2xl border border-panel-border">
+        {/* Selection & Navigation */}
+        <div className="flex items-center gap-0.5">
+          {selectionTools.map((tool) => (
+            <ToolButton key={tool.id} tool={tool} isActive={activeTool === tool.id} />
+          ))}
+        </div>
 
-      {/* Shape tools */}
-      {renderToolGroup(shapeTools)}
+        <div className="w-px h-6 bg-panel-border mx-1" />
 
-      {/* Text tools */}
-      {renderToolGroup(textTools)}
+        {/* Drawing */}
+        <div className="flex items-center gap-0.5">
+          {drawingTools.map((tool) => (
+            <ToolButton key={tool.id} tool={tool} isActive={activeTool === tool.id} />
+          ))}
+        </div>
 
-      {/* Image tools */}
-      {renderToolGroup(imageTools)}
+        <div className="w-px h-6 bg-panel-border mx-1" />
 
-      {/* Zoom controls */}
-      <div className="hidden sm:flex items-center gap-0.5 px-1.5 md:px-2 border-r border-panel-border">
-        <Button variant="toolbar" size="icon" className="w-8 h-8 md:w-9 md:h-9" onClick={onZoomOut} title="Zoom Out">
-          <ZoomOut className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        </Button>
-        <Button variant="toolbar" size="icon" className="w-8 h-8 md:w-9 md:h-9" onClick={onZoomIn} title="Zoom In">
-          <ZoomIn className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        </Button>
-        <Button variant="toolbar" size="icon" className="w-8 h-8 md:w-9 md:h-9" onClick={onReset} title="Reset View">
-          <RotateCcw className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        </Button>
-        <Button 
-          variant="toolbar" 
-          size="icon" 
-          className="w-8 h-8 md:w-9 md:h-9" 
-          onClick={onFullscreen} 
-          title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-        >
-          {isFullscreen ? (
-            <Minimize className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          ) : (
-            <Maximize className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          )}
-        </Button>
-      </div>
+        {/* Shapes */}
+        <div className="flex items-center gap-0.5">
+          {shapeTools.map((tool) => (
+            <ToolButton key={tool.id} tool={tool} isActive={activeTool === tool.id} />
+          ))}
+        </div>
 
-      {/* File actions */}
-      <div className="flex items-center gap-0.5 px-1.5 md:px-2 border-r border-panel-border">
-        <Button
-          variant="toolbar"
-          size="icon"
-          className="w-8 h-8 md:w-9 md:h-9 glow-effect"
-          onClick={onUpload}
-          title="Upload Image"
-        >
-          <Upload className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        </Button>
-        <Button
-          variant="toolbar"
-          size="icon"
-          className="w-8 h-8 md:w-9 md:h-9"
-          onClick={onDeleteSelected}
-          disabled={!canDeleteSelected}
-          title="Delete Selected"
-        >
-          <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        </Button>
-        <Button
-          variant="toolbar"
-          size="icon"
-          className="w-8 h-8 md:w-9 md:h-9"
-          onClick={onClear}
-          disabled={!canClear}
-          title="Clear Canvas"
-        >
-          <Trash className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        </Button>
-      </div>
+        <div className="w-px h-6 bg-panel-border mx-1" />
 
-      {/* Trace & Export */}
-      <div className="flex items-center gap-1 pl-1.5 md:pl-2">
-        <Button
-          variant={isTracing ? "toolbar-active" : "default"}
-          size="sm"
-          onClick={onTrace}
-          disabled={!hasImage || isTracing}
-          className={cn(
-            "gap-1.5 md:gap-2 font-mono text-[10px] md:text-xs h-8 md:h-9 px-2 md:px-3",
-            isTracing && "animate-pulse"
-          )}
-        >
-          <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          <span className="hidden xs:inline">{isTracing ? "Tracing..." : "Trace"}</span>
-        </Button>
-        
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="toolbar"
-                size="icon"
-                className="w-8 h-8 md:w-9 md:h-9"
-                onClick={onGCode}
-                title="G-Code Generator"
-              >
-                <Cog className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              G-Code Generator
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="toolbar"
-                size="icon"
-                className="w-8 h-8 md:w-9 md:h-9"
-                onClick={on3D}
-                title="3D Extrusion"
-              >
-                <Box className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              3D Extrusion
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        
-        <ExportMenu 
-          canvas={canvas} 
-          svgContent={svgContent} 
-          disabled={!hasImage && !hasSvg}
-        />
+        {/* Objects */}
+        <div className="flex items-center gap-0.5">
+          {objectTools.map((tool) => (
+            <ToolButton key={tool.id} tool={tool} isActive={activeTool === tool.id} />
+          ))}
+        </div>
+
+        <div className="w-px h-6 bg-panel-border mx-1" />
+
+        {/* View controls */}
+        <div className="hidden sm:flex items-center gap-0.5">
+          <ActionButton icon={ZoomOut} label="Zoom Out" onClick={onZoomOut} />
+          <ActionButton icon={ZoomIn} label="Zoom In" onClick={onZoomIn} />
+          <ActionButton icon={RotateCcw} label="Reset View" onClick={onReset} />
+          <ActionButton 
+            icon={isFullscreen ? Minimize : Maximize} 
+            label={isFullscreen ? "Exit Fullscreen" : "Fullscreen"} 
+            onClick={onFullscreen} 
+          />
+        </div>
+
+        <div className="hidden sm:block w-px h-6 bg-panel-border mx-1" />
+
+        {/* File actions */}
+        <div className="flex items-center gap-0.5">
+          <ActionButton icon={Upload} label="Upload Image" onClick={onUpload} className="glow-effect" />
+          <ActionButton icon={Trash2} label="Delete Selected" onClick={onDeleteSelected} disabled={!canDeleteSelected} />
+          <ActionButton icon={Trash} label="Clear Canvas" onClick={onClear} disabled={!canClear} />
+        </div>
+
+        <div className="w-px h-6 bg-panel-border mx-1" />
+
+        {/* Generate & Export */}
+        <div className="flex items-center gap-0.5">
+          <ActionButton 
+            icon={Sparkles} 
+            label={isTracing ? "Tracing..." : "Trace"} 
+            onClick={onTrace} 
+            disabled={!hasImage || isTracing}
+            active={isTracing}
+            className={cn(isTracing && "animate-pulse")}
+          />
+          <ActionButton icon={Cog} label="G-Code Generator" onClick={onGCode} />
+          <ActionButton icon={Box} label="3D Extrusion" onClick={on3D} />
+          <ExportMenu 
+            canvas={canvas} 
+            svgContent={svgContent} 
+            disabled={!hasImage && !hasSvg}
+          />
+        </div>
       </div>
     </div>
-    
-    {/* Brush size slider - shown when pen/pencil is active */}
-    <BrushSizeSlider
-      size={brushSize}
-      onChange={onBrushSizeChange}
-      isVisible={isPenOrPencil}
-      strokeColor={strokeColor}
-    />
-  </div>
   );
 };
