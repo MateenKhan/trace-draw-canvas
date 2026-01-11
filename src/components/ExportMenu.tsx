@@ -171,11 +171,45 @@ export const ExportMenu = ({ canvas, svgContent, disabled }: ExportMenuProps) =>
   );
 };
 
+// Mobile-friendly download function
 function downloadFile(url: string, filename: string) {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  link.style.display = 'none';
+  
+  // Check for iOS Safari or in-app browsers
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
+  const isInAppBrowser = /FBAN|FBAV|Instagram|Twitter|Line|WeChat|MicroMessenger/i.test(navigator.userAgent);
+  
+  if (isIOS && (isSafari || isInAppBrowser)) {
+    // For iOS Safari and in-app browsers, open in new tab
+    // User can then long-press to save
+    const newWindow = window.open(url, '_blank');
+    if (!newWindow) {
+      // Fallback: show instructions
+      const toast = document.createElement('div');
+      toast.textContent = 'Long-press and select "Download" or "Save Image"';
+      toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+    return;
+  }
+  
+  // Standard download for other browsers
   document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  
+  // Use setTimeout to ensure the download triggers on mobile
+  setTimeout(() => {
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      // Revoke blob URLs after delay
+      if (url.startsWith('blob:')) {
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
+    }, 100);
+  }, 0);
 }
