@@ -82,22 +82,30 @@ export const traceImageToSVG = async (
     const parser = new DOMParser();
     const doc = parser.parseFromString(svg, "image/svg+xml");
     const svgElement = doc.querySelector("svg");
-    const paths = doc.querySelectorAll("path");
-    
-    if (svgElement) {
-      svgElement.setAttribute("width", String(width));
-      svgElement.setAttribute("height", String(height));
-      svgElement.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    const paths = Array.from(doc.querySelectorAll("path"));
+
+    // If potrace returns an empty SVG, fall back to our custom implementation.
+    if (!svgElement || paths.length === 0) {
+      throw new Error("No paths traced by potrace");
     }
-    
+
+    // Make the SVG responsive so it can be scaled by the container
+    svgElement.setAttribute("width", "100%");
+    svgElement.setAttribute("height", "100%");
+    svgElement.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
     paths.forEach((path) => {
+      // Some outputs may include empty paths; skip them.
+      if (!path.getAttribute("d")) return;
       path.setAttribute("stroke", color);
       path.setAttribute("stroke-width", String(strokeWidth));
       path.setAttribute("fill", fillColor);
     });
-    
+
     const serializer = new XMLSerializer();
-    return serializer.serializeToString(doc);
+    // Serialize the <svg> node only (more reliable for innerHTML rendering)
+    return serializer.serializeToString(svgElement);
   } catch (error) {
     console.error("Potrace-wasm failed, using fallback:", error);
     // Fallback to custom implementation

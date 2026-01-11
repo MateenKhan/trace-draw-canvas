@@ -74,7 +74,8 @@ const CanvasEditor = () => {
       setSvgContent(svg);
       toast.success("Tracing complete!");
     } catch (error) {
-      toast.error("Tracing failed");
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Tracing failed: ${message}`);
       console.error(error);
     } finally {
       setIsTracing(false);
@@ -216,14 +217,14 @@ const CanvasEditor = () => {
                 className="absolute inset-0 pointer-events-none flex items-center justify-center"
                 style={{ mixBlendMode: "normal" }}
               >
-                <div
-                  dangerouslySetInnerHTML={{ __html: svgContent }}
-                  className="max-w-full max-h-full"
-                  style={{
-                    width: canvas?.getWidth(),
-                    height: canvas?.getHeight(),
-                  }}
-                />
+                 <div
+                   dangerouslySetInnerHTML={{ __html: svgContent }}
+                   className="max-w-full max-h-full w-full h-full [&_svg]:w-full [&_svg]:h-full"
+                   style={{
+                     width: canvas?.getWidth(),
+                     height: canvas?.getHeight(),
+                   }}
+                 />
               </div>
             )}
 
