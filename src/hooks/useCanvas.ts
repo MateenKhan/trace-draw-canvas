@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, FabricImage, FabricObject } from "fabric";
+import { Canvas as FabricCanvas, FabricImage } from "fabric";
 
 interface UseCanvasOptions {
   width?: number;
@@ -24,9 +24,94 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       preserveObjectStacking: true,
     });
 
+    // Enable touch gestures for mobile
+    fabricCanvas.allowTouchScrolling = true;
+
+    // Add mouse wheel zoom
+    fabricCanvas.on("mouse:wheel", (opt) => {
+      const delta = opt.e.deltaY;
+      let newZoom = fabricCanvas.getZoom() * (1 - delta / 500);
+      
+      // Clamp zoom
+      newZoom = Math.max(0.1, Math.min(5, newZoom));
+      
+      // Zoom to cursor position
+      const pointer = fabricCanvas.getViewportPoint(opt.e);
+      fabricCanvas.zoomToPoint(pointer, newZoom);
+      
+      setZoom(newZoom);
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    });
+
+    // Track pinch gesture for touch devices
+    let lastDistance = 0;
+    let isPinching = false;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isPinching = true;
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        lastDistance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        );
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isPinching && e.touches.length === 2) {
+        e.preventDefault();
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const distance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        );
+
+        if (lastDistance > 0) {
+          const scale = distance / lastDistance;
+          let newZoom = fabricCanvas.getZoom() * scale;
+          
+          // Clamp zoom
+          newZoom = Math.max(0.1, Math.min(5, newZoom));
+          
+          // Get center point between fingers
+          const centerX = (touch1.clientX + touch2.clientX) / 2;
+          const centerY = (touch1.clientY + touch2.clientY) / 2;
+          
+          const rect = canvasRef.current?.getBoundingClientRect();
+          if (rect) {
+            const point = {
+              x: centerX - rect.left,
+              y: centerY - rect.top,
+            };
+            fabricCanvas.zoomToPoint(point as any, newZoom);
+            setZoom(newZoom);
+          }
+        }
+        
+        lastDistance = distance;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isPinching = false;
+      lastDistance = 0;
+    };
+
+    const canvasEl = canvasRef.current;
+    canvasEl?.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvasEl?.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvasEl?.addEventListener("touchend", handleTouchEnd);
+
     setCanvas(fabricCanvas);
 
     return () => {
+      canvasEl?.removeEventListener("touchstart", handleTouchStart);
+      canvasEl?.removeEventListener("touchmove", handleTouchMove);
+      canvasEl?.removeEventListener("touchend", handleTouchEnd);
       fabricCanvas.dispose();
     };
   }, [options.width, options.height]);
@@ -43,34 +128,42 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
               return;
             }
 
-            canvas.clear();
+            try {
+              canvas.clear();
 
-            const fabricImage = await FabricImage.fromURL(
-              e.target?.result as string
-            );
+              const fabricImage = await FabricImage.fromURL(
+                e.target?.result as string
+              );
 
-            // Scale image to fit canvas
-            const canvasWidth = canvas.getWidth();
-            const canvasHeight = canvas.getHeight();
-            const scale = Math.min(
-              (canvasWidth * 0.9) / img.width,
-              (canvasHeight * 0.9) / img.height
-            );
+              // Scale image to fit canvas
+              const canvasWidth = canvas.getWidth();
+              const canvasHeight = canvas.getHeight();
+              const scale = Math.min(
+                (canvasWidth * 0.9) / img.width,
+                (canvasHeight * 0.9) / img.height
+              );
 
-            fabricImage.scale(scale);
-            fabricImage.set({
-              left: (canvasWidth - img.width * scale) / 2,
-              top: (canvasHeight - img.height * scale) / 2,
-              selectable: true,
-            });
+              fabricImage.scale(scale);
+              fabricImage.set({
+                left: (canvasWidth - img.width * scale) / 2,
+                top: (canvasHeight - img.height * scale) / 2,
+                selectable: true,
+                hasControls: true,
+                hasBorders: true,
+              });
 
-            canvas.add(fabricImage);
-            canvas.renderAll();
-            
-            // Store reference to original image element
-            imageElementRef.current = img;
-            setHasImage(true);
-            resolve(img);
+              canvas.add(fabricImage);
+              canvas.setActiveObject(fabricImage);
+              canvas.renderAll();
+              
+              // Store reference to original image element
+              imageElementRef.current = img;
+              setHasImage(true);
+              resolve(img);
+            } catch (error) {
+              console.error("Error adding image to canvas:", error);
+              reject(error);
+            }
           };
           img.onerror = reject;
           img.src = e.target?.result as string;
@@ -85,7 +178,9 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
   const setZoomLevel = useCallback(
     (newZoom: number) => {
       if (!canvas) return;
-      canvas.setZoom(newZoom);
+      
+      const center = canvas.getCenterPoint();
+      canvas.zoomToPoint(center, newZoom);
       setZoom(newZoom);
     },
     [canvas]
@@ -127,6 +222,17 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     canvas.clear();
     imageElementRef.current = null;
     setHasImage(false);
+    
+    // Reset zoom
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    setZoom(1);
+  }, [canvas]);
+
+  const resetView = useCallback(() => {
+    if (!canvas) return;
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    setZoom(1);
+    canvas.renderAll();
   }, [canvas]);
 
   return {
@@ -139,5 +245,6 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     getImageData,
     getImageElement,
     clearCanvas,
+    resetView,
   };
 };

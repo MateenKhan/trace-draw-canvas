@@ -27,6 +27,7 @@ const CanvasEditor = () => {
     setZoomLevel,
     getImageData,
     clearCanvas,
+    resetView,
   } = useCanvas({ width: 800, height: 600 });
 
   const handleFileSelect = useCallback(
@@ -195,7 +196,7 @@ const CanvasEditor = () => {
             onToolChange={setActiveTool}
             onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))}
             onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))}
-            onReset={() => setZoomLevel(1)}
+            onReset={resetView}
             onUpload={handleUploadClick}
             onTrace={handleTrace}
             onExport={handleExport}
@@ -206,8 +207,8 @@ const CanvasEditor = () => {
           />
 
           {/* Canvas container */}
-          <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px]">
-            <canvas ref={canvasRef} className="max-w-full max-h-full" />
+          <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px] touch-none">
+            <canvas ref={canvasRef} className="max-w-full max-h-full touch-none" />
             
             {/* SVG overlay */}
             {svgContent && showSvgOverlay && hasImage && (
