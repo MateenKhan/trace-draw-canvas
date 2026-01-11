@@ -8,6 +8,7 @@ import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
 import { SvgPreview } from "@/components/SvgPreview";
 import { ImageUploadDialog } from "@/components/ImageUploadDialog";
 import { GCodeDialog } from "@/components/GCodeDialog";
+import { Extrusion3DDialog } from "@/components/Extrusion3DDialog";
 import { LayersPanel } from "@/components/LayersPanel";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
@@ -66,6 +67,7 @@ const CanvasEditor = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showGCodePanel, setShowGCodePanel] = useState(false);
+  const [show3DPanel, setShow3DPanel] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // G-code simulation state
@@ -360,7 +362,7 @@ const CanvasEditor = () => {
 
         {/* Canvas area */}
         <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-4 min-h-0">
-          <DrawingToolbar activeTool={activeTool} onToolChange={handleToolChange} onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))} onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))} onReset={resetView} onUpload={handleUploadClick} onTrace={handleTrace} onClear={handleClear} onFullscreen={handleFullscreen} onGCode={() => setShowGCodePanel(true)} hasImage={hasImage} hasSvg={!!svgContent} isTracing={isTracing} isFullscreen={isFullscreen} canvas={canvas} svgContent={svgContent} />
+          <DrawingToolbar activeTool={activeTool} onToolChange={handleToolChange} onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))} onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))} onReset={resetView} onUpload={handleUploadClick} onTrace={handleTrace} onClear={handleClear} onFullscreen={handleFullscreen} onGCode={() => setShowGCodePanel(true)} on3D={() => setShow3DPanel(true)} hasImage={hasImage} hasSvg={!!svgContent} isTracing={isTracing} isFullscreen={isFullscreen} canvas={canvas} svgContent={svgContent} />
           <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px]" style={{ touchAction: 'none' }}>
             <canvas ref={canvasRef} className="max-w-full max-h-full" />
             
@@ -399,6 +401,7 @@ const CanvasEditor = () => {
         canvas={canvas}
         onSimulationChange={handleSimulationChange}
       />
+      <Extrusion3DDialog open={show3DPanel} onOpenChange={setShow3DPanel} />
     </div>
   );
 };

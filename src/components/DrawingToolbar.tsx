@@ -21,6 +21,7 @@ import {
   Maximize,
   Minimize,
   Cog,
+  Box,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool } from "@/lib/types";
@@ -44,6 +45,7 @@ interface DrawingToolbarProps {
   onClear: () => void;
   onFullscreen: () => void;
   onGCode: () => void;
+  on3D: () => void;
   hasImage: boolean;
   hasSvg: boolean;
   isTracing: boolean;
@@ -89,6 +91,7 @@ export const DrawingToolbar = ({
   onClear,
   onFullscreen,
   onGCode,
+  on3D,
   hasImage,
   hasSvg,
   isTracing,
@@ -217,6 +220,25 @@ export const DrawingToolbar = ({
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
               G-Code Generator
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="toolbar"
+                size="icon"
+                className="w-8 h-8 md:w-9 md:h-9"
+                onClick={on3D}
+                title="3D Extrusion"
+              >
+                <Box className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              3D Extrusion
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
