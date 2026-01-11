@@ -422,34 +422,10 @@ const CanvasEditor = () => {
           </div>
         )}
 
-        {/* Canvas area */}
-        <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-4 min-h-0">
-          <DrawingToolbar
-            activeTool={activeTool}
-            onToolChange={handleToolChange}
-            onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))}
-            onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))}
-            onReset={resetView}
-            onUpload={handleUploadClick}
-            onTrace={handleTrace}
-            onClear={handleClear}
-            onDeleteSelected={deleteSelected}
-            canDeleteSelected={canDeleteSelected}
-            canClear={canClearCanvas}
-            onFullscreen={handleFullscreen}
-            onGCode={() => setShowGCodePanel(true)}
-            on3D={() => setShow3DPanel(true)}
-            hasImage={hasImage}
-            hasSvg={!!svgContent}
-            isTracing={isTracing}
-            isFullscreen={isFullscreen}
-            canvas={canvas}
-            svgContent={svgContent}
-            brushSize={stroke.width}
-            onBrushSizeChange={(size) => handleStrokeChange({ ...stroke, width: size })}
-            strokeColor={stroke.color}
-          />
-          <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px]" style={{ touchAction: 'none' }}>
+        {/* Canvas area - maximized space */}
+        <main className="flex-1 flex flex-col min-h-0 relative">
+          {/* Canvas container - takes all available space */}
+          <div className="flex-1 canvas-container relative flex items-center justify-center overflow-hidden" style={{ touchAction: 'none' }}>
             <canvas ref={canvasRef} className="max-w-full max-h-full" style={{ touchAction: 'none' }} />
             
             {/* SVG trace overlay */}
@@ -465,14 +441,43 @@ const CanvasEditor = () => {
               onClose={() => setShow3DPanel(false)}
               canvas={canvas}
             />
+
+            {/* Interactive drawing mode indicator */}
+            {isInteractiveMode && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-primary/90 text-primary-foreground px-3 py-1.5 rounded-full text-xs font-medium animate-pulse">
+                Drag to draw • Double-tap for default
+              </div>
+            )}
           </div>
-          
-          {/* Interactive drawing mode indicator */}
-          {isInteractiveMode && (
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-primary/90 text-primary-foreground px-3 py-1.5 rounded-full text-xs font-medium animate-pulse">
-              Drag to draw • Double-tap for default
-            </div>
-          )}
+
+          {/* Bottom toolbar - fixed at bottom of canvas area */}
+          <div className="p-2 md:p-3 flex justify-center">
+            <DrawingToolbar
+              activeTool={activeTool}
+              onToolChange={handleToolChange}
+              onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))}
+              onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))}
+              onReset={resetView}
+              onUpload={handleUploadClick}
+              onTrace={handleTrace}
+              onClear={handleClear}
+              onDeleteSelected={deleteSelected}
+              canDeleteSelected={canDeleteSelected}
+              canClear={canClearCanvas}
+              onFullscreen={handleFullscreen}
+              onGCode={() => setShowGCodePanel(true)}
+              on3D={() => setShow3DPanel(true)}
+              hasImage={hasImage}
+              hasSvg={!!svgContent}
+              isTracing={isTracing}
+              isFullscreen={isFullscreen}
+              canvas={canvas}
+              svgContent={svgContent}
+              brushSize={stroke.width}
+              onBrushSizeChange={(size) => handleStrokeChange({ ...stroke, width: size })}
+              strokeColor={stroke.color}
+            />
+          </div>
         </main>
 
         {/* Right Sidebar - Layers Panel */}
