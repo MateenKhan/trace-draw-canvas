@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, FabricImage } from "fabric";
+import { Canvas as FabricCanvas, FabricImage, Point } from "fabric";
 
 interface UseCanvasOptions {
   width?: number;
@@ -8,6 +8,7 @@ interface UseCanvasOptions {
 
 export const useCanvas = (options: UseCanvasOptions = {}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const [canvas, setCanvas] = useState<FabricCanvas | null>(null);
   const [zoom, setZoom] = useState(1);
   const [hasImage, setHasImage] = useState(false);
@@ -106,6 +107,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     canvasEl?.addEventListener("touchmove", handleTouchMove, { passive: false });
     canvasEl?.addEventListener("touchend", handleTouchEnd);
 
+    fabricCanvasRef.current = fabricCanvas;
     setCanvas(fabricCanvas);
 
     return () => {
@@ -113,8 +115,9 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       canvasEl?.removeEventListener("touchmove", handleTouchMove);
       canvasEl?.removeEventListener("touchend", handleTouchEnd);
       fabricCanvas.dispose();
+      fabricCanvasRef.current = null;
     };
-  }, [options.width, options.height]);
+  }, []);
 
   const loadImage = useCallback(
     async (file: File): Promise<HTMLImageElement> => {
