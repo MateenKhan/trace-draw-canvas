@@ -21,15 +21,15 @@ export const TraceSettingsPanel = ({
   };
 
   return (
-    <div className="panel w-72 animate-slide-up">
+    <div className="panel w-full animate-slide-up">
       <div className="panel-header flex items-center gap-2">
         <Settings2 className="w-4 h-4" />
         Trace Settings
       </div>
       
-      <div className="p-4 space-y-6 scrollbar-thin max-h-[calc(100vh-200px)] overflow-y-auto">
+      <div className="p-3 md:p-4 space-y-5 md:space-y-6 scrollbar-thin max-h-[calc(100vh-200px)] overflow-y-auto">
         {/* Detection Section */}
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground uppercase tracking-wider">
             <Sliders className="w-3 h-3" />
             Detection
@@ -66,7 +66,7 @@ export const TraceSettingsPanel = ({
                 step={1}
                 onValueChange={([v]) => updateSetting("turdSize", v)}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] md:text-xs text-muted-foreground">
                 Remove speckles smaller than this
               </p>
             </div>
@@ -82,7 +82,7 @@ export const TraceSettingsPanel = ({
         </div>
 
         {/* Optimization Section */}
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground uppercase tracking-wider">
             <Wand2 className="w-3 h-3" />
             Optimization
@@ -111,7 +111,7 @@ export const TraceSettingsPanel = ({
                 step={0.1}
                 onValueChange={([v]) => updateSetting("optTolerance", v)}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] md:text-xs text-muted-foreground">
                 Higher = simpler paths
               </p>
             </div>
@@ -135,7 +135,7 @@ export const TraceSettingsPanel = ({
         </div>
 
         {/* Style Section */}
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground uppercase tracking-wider">
             <Palette className="w-3 h-3" />
             Style
@@ -149,7 +149,7 @@ export const TraceSettingsPanel = ({
                   type="color"
                   value={settings.color}
                   onChange={(e) => updateSetting("color", e.target.value)}
-                  className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border border-panel-border"
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-lg cursor-pointer bg-transparent border border-panel-border"
                 />
                 <span className="text-xs font-mono text-muted-foreground">
                   {settings.color}
@@ -164,7 +164,7 @@ export const TraceSettingsPanel = ({
                   type="color"
                   value={settings.fillColor === "transparent" ? "#000000" : settings.fillColor}
                   onChange={(e) => updateSetting("fillColor", e.target.value)}
-                  className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border border-panel-border"
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-lg cursor-pointer bg-transparent border border-panel-border"
                 />
                 <button
                   onClick={() => updateSetting("fillColor", "transparent")}

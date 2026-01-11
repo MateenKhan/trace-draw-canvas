@@ -6,7 +6,8 @@ import { SvgPreview } from "@/components/SvgPreview";
 import { DropZone } from "@/components/DropZone";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
 import { toast } from "sonner";
-import { Layers2 } from "lucide-react";
+import { Layers2, Settings2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const CanvasEditor = () => {
   const [activeTool, setActiveTool] = useState("select");
@@ -14,6 +15,7 @@ const CanvasEditor = () => {
   const [svgContent, setSvgContent] = useState<string | null>(null);
   const [showSvgOverlay, setShowSvgOverlay] = useState(true);
   const [isTracing, setIsTracing] = useState(false);
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -65,7 +67,7 @@ const CanvasEditor = () => {
     setIsTracing(true);
     try {
       // Use setTimeout to allow UI to update
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       
       const svg = await traceImageToSVG(imageData, traceSettings);
       setSvgContent(svg);
@@ -103,27 +105,38 @@ const CanvasEditor = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-panel-border bg-toolbar">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-info flex items-center justify-center shadow-glow">
-            <Layers2 className="w-5 h-5 text-primary-foreground" />
+      <header className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-panel-border glass">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-primary to-info flex items-center justify-center shadow-glow">
+            <Layers2 className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">TraceFlow</h1>
-            <p className="text-xs text-muted-foreground font-mono">
+            <h1 className="text-base md:text-lg font-semibold tracking-tight">TraceFlow</h1>
+            <p className="text-[10px] md:text-xs text-muted-foreground font-mono hidden sm:block">
               Bitmap to Vector
             </p>
           </div>
         </div>
-        <div className="text-xs font-mono text-muted-foreground">
-          Zoom: {(zoom * 100).toFixed(0)}%
+        <div className="flex items-center gap-2">
+          {/* Mobile settings toggle */}
+          <Button
+            variant="toolbar"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setShowMobileSettings(!showMobileSettings)}
+          >
+            <Settings2 className="w-4 h-4" />
+          </Button>
+          <div className="text-[10px] md:text-xs font-mono text-muted-foreground">
+            Zoom: {(zoom * 100).toFixed(0)}%
+          </div>
         </div>
       </header>
 
       {/* Main content */}
-      <div className="flex-1 flex">
-        {/* Left panel - Settings */}
-        <aside className="w-80 p-4 border-r border-panel-border bg-toolbar overflow-y-auto scrollbar-thin">
+      <div className="flex-1 flex flex-col lg:flex-row relative">
+        {/* Left panel - Settings (Desktop) */}
+        <aside className="hidden lg:block w-80 p-4 border-r border-panel-border overflow-y-auto scrollbar-thin">
           <TraceSettingsPanel
             settings={traceSettings}
             onSettingsChange={setTraceSettings}
@@ -139,8 +152,43 @@ const CanvasEditor = () => {
           )}
         </aside>
 
+        {/* Mobile Settings Panel */}
+        {showMobileSettings && (
+          <div className="absolute inset-0 z-50 lg:hidden">
+            <div 
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+              onClick={() => setShowMobileSettings(false)}
+            />
+            <div className="absolute inset-y-0 left-0 w-[85%] max-w-sm p-4 overflow-y-auto scrollbar-thin glass animate-slide-up">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Settings</h2>
+                <Button
+                  variant="toolbar"
+                  size="icon"
+                  onClick={() => setShowMobileSettings(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <TraceSettingsPanel
+                settings={traceSettings}
+                onSettingsChange={setTraceSettings}
+              />
+              {svgContent && (
+                <div className="mt-4">
+                  <SvgPreview
+                    svgContent={svgContent}
+                    showPreview={showSvgOverlay}
+                    onTogglePreview={() => setShowSvgOverlay(!showSvgOverlay)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Canvas area */}
-        <main className="flex-1 flex flex-col p-4 gap-4">
+        <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-4 min-h-0">
           {/* Toolbar */}
           <Toolbar
             activeTool={activeTool}
@@ -158,7 +206,7 @@ const CanvasEditor = () => {
           />
 
           {/* Canvas container */}
-          <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden">
+          <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px]">
             <canvas ref={canvasRef} className="max-w-full max-h-full" />
             
             {/* SVG overlay */}
