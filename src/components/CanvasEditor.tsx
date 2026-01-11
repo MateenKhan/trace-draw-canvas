@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useCanvas } from "@/hooks/useCanvas";
 import { useDrawingTools } from "@/hooks/useDrawingTools";
 import { useImageEditing } from "@/hooks/useImageEditing";
+import { useMobileDrawing } from "@/hooks/useMobileDrawing";
 import { DrawingToolbar } from "@/components/DrawingToolbar";
 import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
@@ -108,37 +109,64 @@ const CanvasEditor = () => {
   // Image editing hook
   const { applyFilters } = useImageEditing({ canvas });
 
-  // Handle tool change
+  // Mobile drawing hook for interactive shape creation
+  const { isInteractiveMode } = useMobileDrawing({
+    canvas,
+    activeTool,
+    stroke,
+    fill,
+    onShapeCreated: () => {
+      // Switch back to select after creating a shape
+      setActiveTool('select');
+    },
+  });
+
+  // Handle tool change - modified to support both tap-to-place and drag-to-draw
   const handleToolChange = useCallback((tool: DrawingTool) => {
     setActiveTool(tool);
     enableDrawingMode(false);
     
+    // For interactive tools (line, rectangle, ellipse, polygon), just set the tool
+    // The useMobileDrawing hook will handle drag-to-draw
+    // Double-tap or single tap when already in that mode creates default shape
+    const isInteractiveTool = ['line', 'rectangle', 'ellipse', 'polygon'].includes(tool);
+    
+    if (isInteractiveTool) {
+      // If already in this tool mode, create a default shape (tap-to-place)
+      if (activeTool === tool) {
+        switch (tool) {
+          case 'rectangle':
+            addRectangle();
+            setActiveTool('select');
+            break;
+          case 'ellipse':
+            addEllipse();
+            setActiveTool('select');
+            break;
+          case 'line':
+            addLine();
+            setActiveTool('select');
+            break;
+          case 'polygon':
+            addPolygon(6);
+            setActiveTool('select');
+            break;
+        }
+      }
+      // Otherwise, just stay in this tool mode for drag-to-draw
+      return;
+    }
+    
     switch (tool) {
       case 'pencil':
         enableDrawingMode(true);
-        break;
-      case 'rectangle':
-        addRectangle();
-        setActiveTool('select');
-        break;
-      case 'ellipse':
-        addEllipse();
-        setActiveTool('select');
-        break;
-      case 'line':
-        addLine();
-        setActiveTool('select');
-        break;
-      case 'polygon':
-        addPolygon(6);
-        setActiveTool('select');
         break;
       case 'text':
         addText();
         setActiveTool('select');
         break;
     }
-  }, [enableDrawingMode, addRectangle, addEllipse, addLine, addPolygon, addText]);
+  }, [activeTool, enableDrawingMode, addRectangle, addEllipse, addLine, addPolygon, addText]);
 
   const handleStrokeChange = useCallback((newStroke: StrokeStyle) => {
     setStroke(newStroke);
@@ -374,40 +402,10 @@ const CanvasEditor = () => {
             )}
           </div>
           
-          {/* G-code toolpath overlay - positioned outside canvas container for mobile visibility */}
-          {simulationState.showOverlay && showGCodePanel && (
-            <div 
-              className="absolute inset-0 z-[60]"
-              onTouchStart={(e) => {
-                // Toggle play/pause on tap
-                if (e.touches.length === 1) {
-                  setSimulationState(prev => ({
-                    ...prev,
-                    isPlaying: !prev.isPlaying
-                  }));
-                  toast.info(simulationState.isPlaying ? "Simulation paused" : "Simulation resumed");
-                }
-              }}
-              onClick={() => {
-                // Also support mouse click for desktop
-                setSimulationState(prev => ({
-                  ...prev,
-                  isPlaying: !prev.isPlaying
-                }));
-                toast.info(simulationState.isPlaying ? "Simulation paused" : "Simulation resumed");
-              }}
-            >
-              <div className="relative w-full h-full flex items-center justify-center pointer-events-none">
-                <ToolpathOverlay
-                  toolPaths={toolPaths}
-                  progress={simulationState.progress}
-                  currentPoint={simulationState.currentPoint}
-                  isPlaying={simulationState.isPlaying}
-                  width={canvas?.getWidth() || 800}
-                  height={canvas?.getHeight() || 600}
-                  show={true}
-                />
-              </div>
+          {/* Interactive drawing mode indicator */}
+          {isInteractiveMode && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-primary/90 text-primary-foreground px-3 py-1.5 rounded-full text-xs font-medium animate-pulse">
+              Drag to draw • Double-tap for default
             </div>
           )}
         </main>
@@ -419,6 +417,54 @@ const CanvasEditor = () => {
           )}
         </aside>
       </div>
+
+      {/* G-code toolpath overlay - FIXED position for mobile visibility */}
+      {simulationState.showOverlay && showGCodePanel && toolPaths.length > 0 && (
+        <div 
+          className="fixed inset-0 z-[200] pointer-events-none"
+          style={{ 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0,
+          }}
+        >
+          {/* Touch layer for pause/resume - only in center area */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center pointer-events-auto"
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) {
+                e.stopPropagation();
+                setSimulationState(prev => ({
+                  ...prev,
+                  isPlaying: !prev.isPlaying
+                }));
+                toast.info(simulationState.isPlaying ? "Simulation paused" : "Simulation resumed");
+              }
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSimulationState(prev => ({
+                ...prev,
+                isPlaying: !prev.isPlaying
+              }));
+              toast.info(simulationState.isPlaying ? "Simulation paused" : "Simulation resumed");
+            }}
+          >
+            <div className="w-full h-full max-w-[90vw] max-h-[70vh] flex items-center justify-center">
+              <ToolpathOverlay
+                toolPaths={toolPaths}
+                progress={simulationState.progress}
+                currentPoint={simulationState.currentPoint}
+                isPlaying={simulationState.isPlaying}
+                width={Math.min(canvas?.getWidth() || 800, window.innerWidth * 0.9)}
+                height={Math.min(canvas?.getHeight() || 600, window.innerHeight * 0.7)}
+                show={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <ImageUploadDialog open={showImageUpload} onOpenChange={setShowImageUpload} onFileSelect={handleFileSelect} />
       <GCodeDialog 

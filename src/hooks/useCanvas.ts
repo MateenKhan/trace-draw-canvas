@@ -26,7 +26,13 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     });
 
     // Enable touch gestures for mobile
-    fabricCanvas.allowTouchScrolling = true;
+    fabricCanvas.allowTouchScrolling = false; // Disable to allow proper drawing
+
+    // Initialize freeDrawingBrush for mobile pencil support
+    if (fabricCanvas.freeDrawingBrush) {
+      fabricCanvas.freeDrawingBrush.width = 2;
+      fabricCanvas.freeDrawingBrush.color = '#00d4ff';
+    }
 
     // Add mouse wheel zoom
     fabricCanvas.on("mouse:wheel", (opt) => {
@@ -60,6 +66,8 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     });
 
     const handleTouchStart = (e: TouchEvent) => {
+      // Only handle two-finger gestures for pan/zoom
+      // Single finger is handled by Fabric.js for drawing
       if (e.touches.length === 2) {
         e.preventDefault();
         isPinching = true;
@@ -70,6 +78,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     };
 
     const handleTouchMove = (e: TouchEvent) => {
+      // Only intercept two-finger gestures
       if (e.touches.length !== 2) return;
       e.preventDefault();
 
@@ -116,7 +125,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       }
     };
 
-    // Use the upper-level wrapper element for better touch capture
+    // Use the upper-level wrapper element for multi-touch gestures only
     const wrapperEl = canvasRef.current?.parentElement;
     wrapperEl?.addEventListener("touchstart", handleTouchStart, { passive: false });
     wrapperEl?.addEventListener("touchmove", handleTouchMove, { passive: false });

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, forwardRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -48,7 +48,7 @@ interface GCodePanelProps {
   onSimulationChange?: (state: SimulationState) => void;
 }
 
-export const GCodePanel = ({ toolPaths, onExportGCode, onSimulationChange }: GCodePanelProps) => {
+export const GCodePanel = forwardRef<HTMLDivElement, GCodePanelProps>(({ toolPaths, onExportGCode, onSimulationChange }, ref) => {
   const [settings, setSettings] = useState<GCodeSettings>(DEFAULT_GCODE_SETTINGS);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -447,4 +447,6 @@ export const GCodePanel = ({ toolPaths, onExportGCode, onSimulationChange }: GCo
       </Tabs>
     </div>
   );
-};
+});
+
+GCodePanel.displayName = "GCodePanel";
