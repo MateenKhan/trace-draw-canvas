@@ -9,7 +9,7 @@ import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
 import { SvgPreview } from "@/components/SvgPreview";
 import { ImageUploadDialog } from "@/components/ImageUploadDialog";
 import { GCodeDialog } from "@/components/GCodeDialog";
-import { Extrusion3DDialog } from "@/components/Extrusion3DDialog";
+import { Inline3DExtrude } from "@/components/Inline3DExtrude";
 import { LayersPanel } from "@/components/LayersPanel";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
@@ -458,6 +458,13 @@ const CanvasEditor = () => {
                 <div dangerouslySetInnerHTML={{ __html: svgContent }} className="max-w-full max-h-full w-full h-full [&_svg]:w-full [&_svg]:h-full" style={{ width: canvas?.getWidth(), height: canvas?.getHeight() }} />
               </div>
             )}
+            
+            {/* Inline 3D Extrude Panel */}
+            <Inline3DExtrude 
+              isVisible={show3DPanel} 
+              onClose={() => setShow3DPanel(false)}
+              canvas={canvas}
+            />
           </div>
           
           {/* Interactive drawing mode indicator */}
@@ -531,7 +538,6 @@ const CanvasEditor = () => {
         canvas={canvas}
         onSimulationChange={handleSimulationChange}
       />
-      <Extrusion3DDialog open={show3DPanel} onOpenChange={setShow3DPanel} />
     </div>
   );
 };
