@@ -7,6 +7,7 @@ import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
 import { SvgPreview } from "@/components/SvgPreview";
 import { ImageUploadDialog } from "@/components/ImageUploadDialog";
+import { GCodeDialog } from "@/components/GCodeDialog";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
 import { 
   DrawingTool, 
@@ -45,6 +46,7 @@ const CanvasEditor = () => {
   const [activePanel, setActivePanel] = useState<"properties" | "trace">("properties");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showGCodePanel, setShowGCodePanel] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Canvas hook
@@ -405,6 +407,7 @@ const CanvasEditor = () => {
             onTrace={handleTrace}
             onClear={handleClear}
             onFullscreen={handleFullscreen}
+            onGCode={() => setShowGCodePanel(true)}
             hasImage={hasImage}
             hasSvg={!!svgContent}
             isTracing={isTracing}
@@ -443,6 +446,13 @@ const CanvasEditor = () => {
         open={showImageUpload}
         onOpenChange={setShowImageUpload}
         onFileSelect={handleFileSelect}
+      />
+
+      {/* G-Code Dialog */}
+      <GCodeDialog
+        open={showGCodePanel}
+        onOpenChange={setShowGCodePanel}
+        canvas={canvas}
       />
     </div>
   );

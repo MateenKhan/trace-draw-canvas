@@ -20,6 +20,7 @@ import {
   Trash2,
   Maximize,
   Minimize,
+  Cog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool } from "@/lib/types";
@@ -42,6 +43,7 @@ interface DrawingToolbarProps {
   onTrace: () => void;
   onClear: () => void;
   onFullscreen: () => void;
+  onGCode: () => void;
   hasImage: boolean;
   hasSvg: boolean;
   isTracing: boolean;
@@ -86,6 +88,7 @@ export const DrawingToolbar = ({
   onTrace,
   onClear,
   onFullscreen,
+  onGCode,
   hasImage,
   hasSvg,
   isTracing,
@@ -198,6 +201,25 @@ export const DrawingToolbar = ({
           <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
           <span className="hidden xs:inline">{isTracing ? "Tracing..." : "Trace"}</span>
         </Button>
+        
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="toolbar"
+                size="icon"
+                className="w-8 h-8 md:w-9 md:h-9"
+                onClick={onGCode}
+                title="G-Code Generator"
+              >
+                <Cog className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              G-Code Generator
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         
         <ExportMenu 
           canvas={canvas} 
