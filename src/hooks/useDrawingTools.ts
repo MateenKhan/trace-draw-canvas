@@ -139,7 +139,7 @@ export const useDrawingTools = ({
     canvas.renderAll();
   }, [canvas, textStyle]);
 
-  // Enable freehand drawing mode
+  // Enable freehand drawing mode (pencil)
   const enableDrawingMode = useCallback((enable: boolean) => {
     if (!canvas) return;
 
@@ -147,6 +147,24 @@ export const useDrawingTools = ({
     if (enable && canvas.freeDrawingBrush) {
       canvas.freeDrawingBrush.color = stroke.color;
       canvas.freeDrawingBrush.width = stroke.width;
+      (canvas.freeDrawingBrush as any).strokeLineCap = "round";
+      (canvas.freeDrawingBrush as any).strokeLineJoin = "round";
+      (canvas.freeDrawingBrush as any).decimate = 0; // pencil = no smoothing
+    }
+  }, [canvas, stroke]);
+
+  // Enable "pen" mode (smooth spline-like free draw)
+  const enablePenMode = useCallback((enable: boolean) => {
+    if (!canvas) return;
+
+    canvas.isDrawingMode = enable;
+    if (enable && canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = stroke.color;
+      canvas.freeDrawingBrush.width = stroke.width;
+      (canvas.freeDrawingBrush as any).strokeLineCap = "round";
+      (canvas.freeDrawingBrush as any).strokeLineJoin = "round";
+      // Higher decimate = smoother curves; helps on touch devices
+      (canvas.freeDrawingBrush as any).decimate = 4;
     }
   }, [canvas, stroke]);
 
@@ -238,6 +256,7 @@ export const useDrawingTools = ({
     addPolygon,
     addText,
     enableDrawingMode,
+    enablePenMode,
     deleteSelected,
     updateSelectedStroke,
     updateSelectedFill,

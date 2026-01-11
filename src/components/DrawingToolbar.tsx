@@ -18,6 +18,7 @@ import {
   Upload,
   Sparkles,
   Trash2,
+  Trash,
   Maximize,
   Minimize,
   Cog,
@@ -43,6 +44,9 @@ interface DrawingToolbarProps {
   onUpload: () => void;
   onTrace: () => void;
   onClear: () => void;
+  onDeleteSelected: () => void;
+  canDeleteSelected: boolean;
+  canClear: boolean;
   onFullscreen: () => void;
   onGCode: () => void;
   on3D: () => void;
@@ -89,6 +93,9 @@ export const DrawingToolbar = ({
   onUpload,
   onTrace,
   onClear,
+  onDeleteSelected,
+  canDeleteSelected,
+  canClear,
   onFullscreen,
   onGCode,
   on3D,
@@ -181,11 +188,21 @@ export const DrawingToolbar = ({
           variant="toolbar"
           size="icon"
           className="w-8 h-8 md:w-9 md:h-9"
-          onClick={onClear}
-          disabled={!hasImage}
-          title="Clear Canvas"
+          onClick={onDeleteSelected}
+          disabled={!canDeleteSelected}
+          title="Delete Selected"
         >
           <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
+        </Button>
+        <Button
+          variant="toolbar"
+          size="icon"
+          className="w-8 h-8 md:w-9 md:h-9"
+          onClick={onClear}
+          disabled={!canClear}
+          title="Clear Canvas"
+        >
+          <Trash className="w-3.5 h-3.5 md:w-4 md:h-4" />
         </Button>
       </div>
 
