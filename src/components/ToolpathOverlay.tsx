@@ -65,7 +65,7 @@ export const ToolpathOverlay = memo(({
 
   return (
     <div 
-      className="absolute inset-0 pointer-events-none z-10"
+      className="absolute inset-0 pointer-events-none z-[60]"
       style={{ width, height }}
     >
       <svg 
