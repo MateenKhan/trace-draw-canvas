@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   MousePointer2,
@@ -22,7 +23,8 @@ import {
   Minimize,
   Cog,
   Box,
-  Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool } from "@/lib/types";
@@ -35,6 +37,7 @@ import {
 import { ExportMenu } from "@/components/ExportMenu";
 import { BrushSizeSlider } from "@/components/BrushSizeSlider";
 import { Canvas as FabricCanvas } from "fabric";
+import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 
 interface DrawingToolbarProps {
   activeTool: DrawingTool;
@@ -62,32 +65,50 @@ interface DrawingToolbarProps {
   strokeColor: string;
 }
 
-// Selection & Navigation tools
-const selectionTools = [
-  { id: 'select' as DrawingTool, icon: MousePointer2, label: 'Select (V)' },
-  { id: 'pan' as DrawingTool, icon: Hand, label: 'Pan (H)' },
+// Tool groups for mobile swipe navigation
+const toolGroups = [
+  {
+    id: 'select',
+    label: 'Select',
+    tools: [
+      { id: 'select' as DrawingTool, icon: MousePointer2, label: 'Select' },
+      { id: 'pan' as DrawingTool, icon: Hand, label: 'Pan' },
+    ],
+  },
+  {
+    id: 'draw',
+    label: 'Draw',
+    tools: [
+      { id: 'pen' as DrawingTool, icon: Pen, label: 'Pen' },
+      { id: 'pencil' as DrawingTool, icon: Pencil, label: 'Pencil' },
+    ],
+  },
+  {
+    id: 'shapes',
+    label: 'Shapes',
+    tools: [
+      { id: 'line' as DrawingTool, icon: Minus, label: 'Line' },
+      { id: 'rectangle' as DrawingTool, icon: Square, label: 'Rectangle' },
+      { id: 'ellipse' as DrawingTool, icon: Circle, label: 'Ellipse' },
+      { id: 'polygon' as DrawingTool, icon: Hexagon, label: 'Polygon' },
+    ],
+  },
+  {
+    id: 'objects',
+    label: 'Objects',
+    tools: [
+      { id: 'text' as DrawingTool, icon: Type, label: 'Text' },
+      { id: 'crop' as DrawingTool, icon: Crop, label: 'Crop' },
+      { id: 'transform' as DrawingTool, icon: Move3D, label: 'Transform' },
+    ],
+  },
 ];
 
-// Drawing tools
-const drawingTools = [
-  { id: 'pen' as DrawingTool, icon: Pen, label: 'Pen (P)' },
-  { id: 'pencil' as DrawingTool, icon: Pencil, label: 'Pencil (B)' },
-];
-
-// Shape tools
-const shapeTools = [
-  { id: 'line' as DrawingTool, icon: Minus, label: 'Line (L)' },
-  { id: 'rectangle' as DrawingTool, icon: Square, label: 'Rectangle (R)' },
-  { id: 'ellipse' as DrawingTool, icon: Circle, label: 'Ellipse (O)' },
-  { id: 'polygon' as DrawingTool, icon: Hexagon, label: 'Polygon (Y)' },
-];
-
-// Object tools
-const objectTools = [
-  { id: 'text' as DrawingTool, icon: Type, label: 'Text (T)' },
-  { id: 'crop' as DrawingTool, icon: Crop, label: 'Crop (C)' },
-  { id: 'transform' as DrawingTool, icon: Move3D, label: 'Transform (E)' },
-];
+// Desktop tools arrays (keep for desktop layout)
+const selectionTools = toolGroups[0].tools;
+const drawingTools = toolGroups[1].tools;
+const shapeTools = toolGroups[2].tools;
+const objectTools = toolGroups[3].tools;
 
 export const DrawingToolbar = ({
   activeTool,
@@ -115,18 +136,37 @@ export const DrawingToolbar = ({
   strokeColor,
 }: DrawingToolbarProps) => {
   const isPenOrPencil = activeTool === 'pen' || activeTool === 'pencil';
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
 
-  const ToolButton = ({ tool, isActive }: { tool: typeof selectionTools[0]; isActive: boolean }) => (
+  const goToNextGroup = useCallback(() => {
+    setActiveGroupIndex((prev) => (prev + 1) % toolGroups.length);
+  }, []);
+
+  const goToPrevGroup = useCallback(() => {
+    setActiveGroupIndex((prev) => (prev - 1 + toolGroups.length) % toolGroups.length);
+  }, []);
+
+  const { handlers } = useSwipeGesture({
+    minSwipeDistance: 40,
+    onSwipeLeft: goToNextGroup,
+    onSwipeRight: goToPrevGroup,
+  });
+
+  const ToolButton = ({ tool, isActive, compact = false }: { 
+    tool: typeof selectionTools[0]; 
+    isActive: boolean;
+    compact?: boolean;
+  }) => (
     <TooltipProvider delayDuration={300}>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             variant={isActive ? "toolbar-active" : "toolbar"}
             size="icon"
-            className="w-10 h-10"
+            className={cn(compact ? "w-9 h-9" : "w-10 h-10")}
             onClick={() => onToolChange(tool.id)}
           >
-            <tool.icon className="w-5 h-5" />
+            <tool.icon className={cn(compact ? "w-4 h-4" : "w-5 h-5")} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -136,13 +176,14 @@ export const DrawingToolbar = ({
     </TooltipProvider>
   );
 
-  const ActionButton = ({ icon: Icon, label, onClick, disabled, active, className }: {
+  const ActionButton = ({ icon: Icon, label, onClick, disabled, active, className, compact = false }: {
     icon: typeof Upload;
     label: string;
     onClick: () => void;
     disabled?: boolean;
     active?: boolean;
     className?: string;
+    compact?: boolean;
   }) => (
     <TooltipProvider delayDuration={300}>
       <Tooltip>
@@ -150,11 +191,11 @@ export const DrawingToolbar = ({
           <Button
             variant={active ? "toolbar-active" : "toolbar"}
             size="icon"
-            className={cn("w-10 h-10", className)}
+            className={cn(compact ? "w-9 h-9" : "w-10 h-10", className)}
             onClick={onClick}
             disabled={disabled}
           >
-            <Icon className="w-5 h-5" />
+            <Icon className={cn(compact ? "w-4 h-4" : "w-5 h-5")} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -163,6 +204,8 @@ export const DrawingToolbar = ({
       </Tooltip>
     </TooltipProvider>
   );
+
+  const activeGroup = toolGroups[activeGroupIndex];
 
   return (
     <div className="flex flex-col gap-2">
@@ -174,8 +217,82 @@ export const DrawingToolbar = ({
         strokeColor={strokeColor}
       />
 
-      {/* Main bottom toolbar */}
-      <div className="flex items-center justify-center gap-1 p-2 glass rounded-2xl border border-panel-border">
+      {/* Mobile toolbar with swipe navigation */}
+      <div 
+        className="flex sm:hidden items-center justify-between gap-1 p-2 glass rounded-2xl border border-panel-border"
+        {...handlers}
+      >
+        {/* Prev button */}
+        <Button
+          variant="toolbar"
+          size="icon"
+          className="w-8 h-8 shrink-0"
+          onClick={goToPrevGroup}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+
+        {/* Tool group with swipe area */}
+        <div className="flex-1 flex items-center justify-center gap-1 min-w-0">
+          {/* Tools in current group */}
+          <div className="flex items-center gap-1">
+            {activeGroup.tools.map((tool) => (
+              <ToolButton key={tool.id} tool={tool} isActive={activeTool === tool.id} compact />
+            ))}
+          </div>
+
+          {/* Separator */}
+          <div className="w-px h-5 bg-panel-border mx-1" />
+
+          {/* Quick actions */}
+          <div className="flex items-center gap-1">
+            <ActionButton icon={Upload} label="Upload" onClick={onUpload} compact />
+            <ActionButton 
+              icon={Sparkles} 
+              label="Trace" 
+              onClick={onTrace} 
+              disabled={!hasImage || isTracing}
+              active={isTracing}
+              compact
+            />
+            <ExportMenu 
+              canvas={canvas} 
+              svgContent={svgContent} 
+              disabled={!hasImage && !hasSvg}
+            />
+          </div>
+        </div>
+
+        {/* Next button */}
+        <Button
+          variant="toolbar"
+          size="icon"
+          className="w-8 h-8 shrink-0"
+          onClick={goToNextGroup}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Mobile group indicator dots */}
+      <div className="flex sm:hidden items-center justify-center gap-1.5">
+        {toolGroups.map((group, index) => (
+          <button
+            key={group.id}
+            className={cn(
+              "w-1.5 h-1.5 rounded-full transition-all",
+              index === activeGroupIndex 
+                ? "bg-primary w-3" 
+                : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+            )}
+            onClick={() => setActiveGroupIndex(index)}
+            aria-label={`Go to ${group.label} tools`}
+          />
+        ))}
+      </div>
+
+      {/* Desktop toolbar */}
+      <div className="hidden sm:flex items-center justify-center gap-1 p-2 glass rounded-2xl border border-panel-border">
         {/* Selection & Navigation */}
         <div className="flex items-center gap-0.5">
           {selectionTools.map((tool) => (
@@ -213,7 +330,7 @@ export const DrawingToolbar = ({
         <div className="w-px h-6 bg-panel-border mx-1" />
 
         {/* View controls */}
-        <div className="hidden sm:flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5">
           <ActionButton icon={ZoomOut} label="Zoom Out" onClick={onZoomOut} />
           <ActionButton icon={ZoomIn} label="Zoom In" onClick={onZoomIn} />
           <ActionButton icon={RotateCcw} label="Reset View" onClick={onReset} />
@@ -224,7 +341,7 @@ export const DrawingToolbar = ({
           />
         </div>
 
-        <div className="hidden sm:block w-px h-6 bg-panel-border mx-1" />
+        <div className="w-px h-6 bg-panel-border mx-1" />
 
         {/* File actions */}
         <div className="flex items-center gap-0.5">
