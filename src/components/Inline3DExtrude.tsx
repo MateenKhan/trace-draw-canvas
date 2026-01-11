@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { MeshStandardMaterial, Shape, Vector2 } from "three";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { MeshStandardMaterial, Shape, Vector2, Vector3, Spherical } from "three";
 import { Canvas as FabricCanvas, FabricObject } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { X, Box, Circle, Triangle, Star, RotateCcw, Sparkles, Layers, AlertCircle } from "lucide-react";
+import { X, Box, Circle, Triangle, Star, RotateCcw, Sparkles, Layers, AlertCircle, Move3D } from "lucide-react";
 import {
   ExtrusionSettings,
   MaterialSettings,
@@ -32,17 +32,52 @@ interface Inline3DExtrudeProps {
   canvas: FabricCanvas | null;
 }
 
-// Camera controller for auto-rotation
-const CameraController = ({ autoRotate }: { autoRotate: boolean }) => {
-  const rotationRef = useRef(0);
+// Interactive camera controller with drag-to-rotate and auto-rotation
+const CameraController = ({ 
+  autoRotate, 
+  isDragging,
+  dragDelta,
+  onDragEnd,
+}: { 
+  autoRotate: boolean;
+  isDragging: boolean;
+  dragDelta: { x: number; y: number };
+  onDragEnd: () => void;
+}) => {
+  const { camera } = useThree();
+  const sphericalRef = useRef(new Spherical(8, Math.PI / 3, 0));
+  const autoRotationRef = useRef(0);
+  const lastDragRef = useRef({ x: 0, y: 0 });
   
-  useFrame(({ camera }) => {
-    if (autoRotate) {
-      rotationRef.current += 0.008;
-      camera.position.x = Math.sin(rotationRef.current) * 8;
-      camera.position.z = Math.cos(rotationRef.current) * 8;
-      camera.lookAt(0, 0, 0);
+  useFrame(() => {
+    const spherical = sphericalRef.current;
+    
+    // Apply drag rotation
+    if (isDragging) {
+      const deltaX = dragDelta.x - lastDragRef.current.x;
+      const deltaY = dragDelta.y - lastDragRef.current.y;
+      
+      spherical.theta -= deltaX * 0.01;
+      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi + deltaY * 0.01));
+      
+      lastDragRef.current = { x: dragDelta.x, y: dragDelta.y };
+    } else {
+      lastDragRef.current = { x: 0, y: 0 };
+      
+      // Auto-rotate when not dragging
+      if (autoRotate) {
+        autoRotationRef.current += 0.008;
+        spherical.theta = autoRotationRef.current;
+      }
     }
+    
+    // Convert spherical to cartesian and update camera
+    const x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+    const y = spherical.radius * Math.cos(spherical.phi);
+    const z = spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+    
+    camera.position.set(x, y, z);
+    camera.lookAt(0, 0, 0);
   });
   
   return null;
@@ -344,6 +379,39 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
   const [material, setMaterial] = useState<MaterialSettings>(DEFAULT_MATERIAL);
   const [autoRotate, setAutoRotate] = useState(true);
   const [showSamples, setShowSamples] = useState(false);
+  
+  // Drag-to-rotate state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragDelta, setDragDelta] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse/touch handlers for drag rotation
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    setIsDragging(true);
+    setAutoRotate(false);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    setDragDelta({ x: 0, y: 0 });
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging) return;
+    setDragDelta({
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y,
+    });
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  }, [isDragging]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    setIsDragging(false);
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDragDelta({ x: 0, y: 0 });
+  }, []);
 
   // Extract shapes from canvas
   useEffect(() => {
@@ -401,19 +469,35 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
             </span>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Move3D className="w-3 h-3" />
+            Drag to rotate
+          </span>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* 3D Preview */}
-        <div className="flex-1 min-h-[250px] lg:min-h-0">
+        {/* 3D Preview with drag handlers */}
+        <div 
+          ref={canvasContainerRef}
+          className={cn(
+            "flex-1 min-h-[250px] lg:min-h-0 cursor-grab touch-none",
+            isDragging && "cursor-grabbing"
+          )}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
           <Canvas
             shadows
             camera={{ position: [5, 5, 5], fov: 50 }}
-            style={{ width: "100%", height: "100%" }}
+            style={{ width: "100%", height: "100%", pointerEvents: "none" }}
           >
             <color attach="background" args={["#1a1a2e"]} />
             
@@ -447,7 +531,12 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
             )}
             
             {/* Camera Controller */}
-            <CameraController autoRotate={autoRotate} />
+            <CameraController 
+              autoRotate={autoRotate} 
+              isDragging={isDragging}
+              dragDelta={dragDelta}
+              onDragEnd={handleDragEnd}
+            />
           </Canvas>
         </div>
 
