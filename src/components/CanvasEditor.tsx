@@ -376,8 +376,28 @@ const CanvasEditor = () => {
           
           {/* G-code toolpath overlay - positioned outside canvas container for mobile visibility */}
           {simulationState.showOverlay && showGCodePanel && (
-            <div className="absolute inset-0 pointer-events-none z-[60]">
-              <div className="relative w-full h-full flex items-center justify-center">
+            <div 
+              className="absolute inset-0 z-[60]"
+              onTouchStart={(e) => {
+                // Toggle play/pause on tap
+                if (e.touches.length === 1) {
+                  setSimulationState(prev => ({
+                    ...prev,
+                    isPlaying: !prev.isPlaying
+                  }));
+                  toast.info(simulationState.isPlaying ? "Simulation paused" : "Simulation resumed");
+                }
+              }}
+              onClick={() => {
+                // Also support mouse click for desktop
+                setSimulationState(prev => ({
+                  ...prev,
+                  isPlaying: !prev.isPlaying
+                }));
+                toast.info(simulationState.isPlaying ? "Simulation paused" : "Simulation resumed");
+              }}
+            >
+              <div className="relative w-full h-full flex items-center justify-center pointer-events-none">
                 <ToolpathOverlay
                   toolPaths={toolPaths}
                   progress={simulationState.progress}
