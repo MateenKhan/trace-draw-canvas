@@ -37,7 +37,7 @@ export const SvgPreview = ({
       
       <div className="p-4">
         <div
-          className="w-full aspect-square rounded-lg bg-canvas border border-panel-border overflow-hidden"
+          className="w-full aspect-square rounded-lg bg-canvas border border-panel-border overflow-hidden [&_svg]:w-full [&_svg]:h-full"
           dangerouslySetInnerHTML={{ __html: svgContent }}
           style={{
             background: `
