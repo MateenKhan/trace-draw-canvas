@@ -75,7 +75,7 @@ export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
 
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent ref={ref} className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span className="text-lg font-semibold">G-Code Generator</span>
