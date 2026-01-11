@@ -1,3 +1,5 @@
+import { loadFromCanvas } from "potrace-wasm";
+
 export interface TraceSettings {
   threshold: number;
   turdSize: number;
@@ -24,72 +26,111 @@ export const defaultTraceSettings: TraceSettings = {
   strokeWidth: 1,
 };
 
-interface Point {
-  x: number;
-  y: number;
-}
-
-// Process image in chunks to prevent blocking
-const processInChunks = async <T>(
-  items: number,
-  chunkSize: number,
-  processor: (start: number, end: number) => T[]
-): Promise<T[]> => {
-  const results: T[] = [];
-  for (let i = 0; i < items; i += chunkSize) {
-    const end = Math.min(i + chunkSize, items);
-    results.push(...processor(i, end));
-    // Yield to main thread
-    await new Promise(resolve => setTimeout(resolve, 0));
-  }
-  return results;
-};
-
-// Simple edge detection and path tracing algorithm
+// Use potrace-wasm for high-quality tracing
 export const traceImageToSVG = async (
   imageData: ImageData,
   settings: TraceSettings
 ): Promise<string> => {
   const { width, height, data } = imageData;
-  const { threshold, blackOnWhite, color, strokeWidth, turdSize } = settings;
+  const { threshold, blackOnWhite, color, strokeWidth, fillColor } = settings;
 
-  // Convert to grayscale and threshold with chunking
-  const binaryData: boolean[][] = new Array(height);
+  // Create a canvas from imageData for potrace
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const ctx = tempCanvas.getContext("2d");
   
-  const chunkSize = 50; // Process 50 rows at a time
-  for (let startY = 0; startY < height; startY += chunkSize) {
-    const endY = Math.min(startY + chunkSize, height);
+  if (!ctx) {
+    throw new Error("Could not get canvas context");
+  }
+
+  // Pre-process image: convert to binary based on threshold
+  const processedData = new ImageData(width, height);
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
     
-    for (let y = startY; y < endY; y++) {
-      binaryData[y] = new Array(width);
-      for (let x = 0; x < width; x++) {
-        const idx = (y * width + x) * 4;
-        const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-        const alpha = data[idx + 3];
-        
-        if (alpha < 128) {
-          binaryData[y][x] = blackOnWhite;
-        } else {
-          binaryData[y][x] = blackOnWhite ? gray < threshold : gray >= threshold;
-        }
-      }
+    // Calculate grayscale
+    const gray = (r + g + b) / 3;
+    
+    // Apply threshold
+    let isBlack: boolean;
+    if (a < 128) {
+      // Transparent pixels
+      isBlack = !blackOnWhite;
+    } else {
+      isBlack = blackOnWhite ? gray < threshold : gray >= threshold;
     }
     
-    // Yield to main thread periodically
-    if (startY % (chunkSize * 2) === 0) {
-      await new Promise(resolve => setTimeout(resolve, 0));
+    // Set pixel to black or white
+    const value = isBlack ? 0 : 255;
+    processedData.data[i] = value;
+    processedData.data[i + 1] = value;
+    processedData.data[i + 2] = value;
+    processedData.data[i + 3] = 255;
+  }
+
+  ctx.putImageData(processedData, 0, 0);
+
+  try {
+    // Use potrace-wasm for tracing
+    const svg = await loadFromCanvas(tempCanvas);
+    
+    // Parse and modify the SVG to apply our custom styles
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svg, "image/svg+xml");
+    const svgElement = doc.querySelector("svg");
+    const paths = doc.querySelectorAll("path");
+    
+    if (svgElement) {
+      svgElement.setAttribute("width", String(width));
+      svgElement.setAttribute("height", String(height));
+      svgElement.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    }
+    
+    paths.forEach((path) => {
+      path.setAttribute("stroke", color);
+      path.setAttribute("stroke-width", String(strokeWidth));
+      path.setAttribute("fill", fillColor);
+    });
+    
+    const serializer = new XMLSerializer();
+    return serializer.serializeToString(doc);
+  } catch (error) {
+    console.error("Potrace-wasm failed, using fallback:", error);
+    // Fallback to custom implementation
+    return fallbackTrace(processedData, settings);
+  }
+};
+
+// Fallback implementation if potrace-wasm fails
+async function fallbackTrace(
+  imageData: ImageData,
+  settings: TraceSettings
+): Promise<string> {
+  const { width, height, data } = imageData;
+  const { color, strokeWidth, fillColor, turdSize } = settings;
+
+  // Convert to binary
+  const binary: boolean[][] = [];
+  for (let y = 0; y < height; y++) {
+    binary[y] = [];
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      binary[y][x] = data[idx] < 128;
     }
   }
 
-  // Find contours using marching squares
-  const contours = await findContours(binaryData, width, height, turdSize);
+  // Find contours
+  const contours = findContours(binary, width, height, turdSize);
 
-  // Generate SVG
+  // Generate SVG path
   let pathD = "";
   for (const contour of contours) {
     if (contour.length < 3) continue;
     
-    // Simplify path
     const simplified = douglasPeucker(contour, settings.optTolerance * 2);
     
     pathD += `M ${simplified[0].x.toFixed(1)} ${simplified[0].y.toFixed(1)} `;
@@ -100,32 +141,30 @@ export const traceImageToSVG = async (
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
-    <path d="${pathD}" fill="${settings.fillColor}" stroke="${color}" stroke-width="${strokeWidth}" />
+    <path d="${pathD}" fill="${fillColor}" stroke="${color}" stroke-width="${strokeWidth}" />
   </svg>`;
-};
+}
 
-// Marching squares algorithm to find contours
-async function findContours(
+interface Point {
+  x: number;
+  y: number;
+}
+
+function findContours(
   binary: boolean[][],
   width: number,
   height: number,
   minSize: number
-): Promise<Point[][]> {
+): Point[][] {
   const visited = new Set<string>();
   const contours: Point[][] = [];
-  const maxContours = 500; // Limit number of contours to prevent hanging
+  const maxContours = 500;
 
   for (let y = 0; y < height - 1 && contours.length < maxContours; y++) {
-    // Yield periodically
-    if (y % 100 === 0) {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    }
-    
     for (let x = 0; x < width - 1 && contours.length < maxContours; x++) {
       const key = `${x},${y}`;
       if (visited.has(key)) continue;
 
-      // Check for edge
       const tl = binary[y]?.[x] ?? false;
       const tr = binary[y]?.[x + 1] ?? false;
       const bl = binary[y + 1]?.[x] ?? false;
@@ -156,9 +195,9 @@ function traceContour(
   const contour: Point[] = [];
   let x = startX;
   let y = startY;
-  let dir = 0; // 0: right, 1: down, 2: left, 3: up
+  let dir = 0;
 
-  const maxSteps = Math.min(width * height, 5000); // Limit steps
+  const maxSteps = Math.min(width * height, 5000);
   let steps = 0;
 
   do {
@@ -168,18 +207,15 @@ function traceContour(
     visited.add(key);
     contour.push({ x: x + 0.5, y: y + 0.5 });
 
-    // Get cell type
     const tl = binary[y]?.[x] ?? false;
     const tr = binary[y]?.[x + 1] ?? false;
     const bl = binary[y + 1]?.[x] ?? false;
     const br = binary[y + 1]?.[x + 1] ?? false;
     const cellType = (tl ? 8 : 0) + (tr ? 4 : 0) + (br ? 2 : 0) + (bl ? 1 : 0);
 
-    // Determine next direction based on cell type
     const nextDir = getNextDirection(cellType, dir);
     dir = nextDir;
 
-    // Move to next cell
     switch (dir) {
       case 0: x++; break;
       case 1: y++; break;
@@ -187,7 +223,6 @@ function traceContour(
       case 3: y--; break;
     }
 
-    // Bounds check
     if (x < 0 || x >= width - 1 || y < 0 || y >= height - 1) break;
 
   } while (!(x === startX && y === startY) && contour.length < 5000);
@@ -196,7 +231,6 @@ function traceContour(
 }
 
 function getNextDirection(cellType: number, currentDir: number): number {
-  // Simplified marching squares lookup
   const directions: { [key: number]: number } = {
     1: 3, 2: 0, 3: 0, 4: 1, 5: 3, 6: 1, 7: 0,
     8: 2, 9: 2, 10: 1, 11: 2, 12: 1, 13: 3, 14: 1,
@@ -205,7 +239,6 @@ function getNextDirection(cellType: number, currentDir: number): number {
   return directions[cellType] ?? currentDir;
 }
 
-// Douglas-Peucker line simplification
 function douglasPeucker(points: Point[], epsilon: number): Point[] {
   if (points.length <= 2) return points;
 

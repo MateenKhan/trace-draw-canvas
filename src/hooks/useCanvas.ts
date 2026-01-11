@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, FabricImage } from "fabric";
+import { Canvas as FabricCanvas, FabricImage, FabricObject } from "fabric";
 
 interface UseCanvasOptions {
   width?: number;
@@ -11,6 +11,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
   const [canvas, setCanvas] = useState<FabricCanvas | null>(null);
   const [zoom, setZoom] = useState(1);
   const [hasImage, setHasImage] = useState(false);
+  const imageElementRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -65,6 +66,9 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
 
             canvas.add(fabricImage);
             canvas.renderAll();
+            
+            // Store reference to original image element
+            imageElementRef.current = img;
             setHasImage(true);
             resolve(img);
           };
@@ -81,7 +85,6 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
   const setZoomLevel = useCallback(
     (newZoom: number) => {
       if (!canvas) return;
-      const center = canvas.getCenter();
       canvas.setZoom(newZoom);
       setZoom(newZoom);
     },
@@ -89,41 +92,40 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
   );
 
   const getImageData = useCallback((): ImageData | null => {
-    if (!canvas) return null;
+    // Use the stored image element reference
+    if (!imageElementRef.current) {
+      console.log("No image element reference found");
+      return null;
+    }
 
-    const objects = canvas.getObjects();
-    if (objects.length === 0) return null;
-
-    // Get the first image object
-    const imageObj = objects.find((obj) => obj.type === "image");
-    if (!imageObj) return null;
-
+    const img = imageElementRef.current;
+    
     // Create a temporary canvas to get image data
     const tempCanvas = document.createElement("canvas");
     const ctx = tempCanvas.getContext("2d");
-    if (!ctx) return null;
+    if (!ctx) {
+      console.log("Could not get 2d context");
+      return null;
+    }
 
-    const element = (imageObj as FabricImage).getElement();
-    tempCanvas.width = element.width || 0;
-    tempCanvas.height = element.height || 0;
-    ctx.drawImage(element as HTMLImageElement, 0, 0);
+    tempCanvas.width = img.naturalWidth || img.width;
+    tempCanvas.height = img.naturalHeight || img.height;
+    
+    console.log("Getting image data:", tempCanvas.width, "x", tempCanvas.height);
+    
+    ctx.drawImage(img, 0, 0);
 
     return ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-  }, [canvas]);
+  }, []);
 
   const getImageElement = useCallback((): HTMLImageElement | null => {
-    if (!canvas) return null;
-
-    const objects = canvas.getObjects();
-    const imageObj = objects.find((obj) => obj.type === "image");
-    if (!imageObj) return null;
-
-    return (imageObj as FabricImage).getElement() as HTMLImageElement;
-  }, [canvas]);
+    return imageElementRef.current;
+  }, []);
 
   const clearCanvas = useCallback(() => {
     if (!canvas) return;
     canvas.clear();
+    imageElementRef.current = null;
     setHasImage(false);
   }, [canvas]);
 
