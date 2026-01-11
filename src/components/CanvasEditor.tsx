@@ -6,7 +6,7 @@ import { DrawingToolbar } from "@/components/DrawingToolbar";
 import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
 import { SvgPreview } from "@/components/SvgPreview";
-import { DropZone } from "@/components/DropZone";
+import { ImageUploadDialog } from "@/components/ImageUploadDialog";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
 import { 
   DrawingTool, 
@@ -44,7 +44,7 @@ const CanvasEditor = () => {
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [activePanel, setActivePanel] = useState<"properties" | "trace">("properties");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showImageUpload, setShowImageUpload] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Canvas hook
@@ -159,18 +159,8 @@ const CanvasEditor = () => {
   );
 
   const handleUploadClick = useCallback(() => {
-    fileInputRef.current?.click();
+    setShowImageUpload(true);
   }, []);
-
-  const handleFileInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        handleFileSelect(file);
-      }
-    },
-    [handleFileSelect]
-  );
 
   // Tracing
   const handleTrace = useCallback(async () => {
@@ -444,20 +434,16 @@ const CanvasEditor = () => {
               </div>
             )}
 
-            {/* Drop zone */}
-            <DropZone onFileSelect={handleFileSelect} hasImage={hasImage} />
-
-            {/* Hidden file input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileInputChange}
-              className="hidden"
-            />
           </div>
         </main>
       </div>
+
+      {/* Image Upload Dialog */}
+      <ImageUploadDialog
+        open={showImageUpload}
+        onOpenChange={setShowImageUpload}
+        onFileSelect={handleFileSelect}
+      />
     </div>
   );
 };
