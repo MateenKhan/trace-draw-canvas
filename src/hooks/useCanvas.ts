@@ -25,11 +25,19 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       preserveObjectStacking: true,
     });
 
+    // Ensure touch drawing works reliably on mobile browsers
+    // (prevents page scrolling/gestures from stealing the pointer stream)
+    (fabricCanvas as any).upperCanvasEl?.style && ((fabricCanvas as any).upperCanvasEl.style.touchAction = "none");
+    (fabricCanvas as any).lowerCanvasEl?.style && ((fabricCanvas as any).lowerCanvasEl.style.touchAction = "none");
+
     // Enable touch gestures for mobile
     fabricCanvas.allowTouchScrolling = false; // Disable to allow proper drawing
 
     // Initialize freeDrawingBrush for mobile pencil support
     if (fabricCanvas.freeDrawingBrush) {
+      (fabricCanvas.freeDrawingBrush as any).strokeLineCap = "round";
+      (fabricCanvas.freeDrawingBrush as any).strokeLineJoin = "round";
+      (fabricCanvas.freeDrawingBrush as any).decimate = 0;
       fabricCanvas.freeDrawingBrush.width = 2;
       fabricCanvas.freeDrawingBrush.color = '#00d4ff';
     }

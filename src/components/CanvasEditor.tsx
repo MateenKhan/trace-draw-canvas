@@ -69,6 +69,8 @@ const CanvasEditor = () => {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showGCodePanel, setShowGCodePanel] = useState(false);
   const [show3DPanel, setShow3DPanel] = useState(false);
+  const [canDeleteSelected, setCanDeleteSelected] = useState(false);
+  const [canClearCanvas, setCanClearCanvas] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // G-code simulation state
@@ -100,6 +102,7 @@ const CanvasEditor = () => {
     addPolygon,
     addText,
     enableDrawingMode,
+    enablePenMode,
     deleteSelected,
     updateSelectedStroke,
     updateSelectedFill,
@@ -125,12 +128,13 @@ const CanvasEditor = () => {
   const handleToolChange = useCallback((tool: DrawingTool) => {
     setActiveTool(tool);
     enableDrawingMode(false);
-    
+    enablePenMode(false);
+
     // For interactive tools (line, rectangle, ellipse, polygon), just set the tool
     // The useMobileDrawing hook will handle drag-to-draw
     // Double-tap or single tap when already in that mode creates default shape
     const isInteractiveTool = ['line', 'rectangle', 'ellipse', 'polygon'].includes(tool);
-    
+
     if (isInteractiveTool) {
       // If already in this tool mode, create a default shape (tap-to-place)
       if (activeTool === tool) {
@@ -156,17 +160,21 @@ const CanvasEditor = () => {
       // Otherwise, just stay in this tool mode for drag-to-draw
       return;
     }
-    
+
     switch (tool) {
       case 'pencil':
         enableDrawingMode(true);
+        break;
+      case 'pen':
+        // Smooth "spline-like" free draw, tuned for touch
+        enablePenMode(true);
         break;
       case 'text':
         addText();
         setActiveTool('select');
         break;
     }
-  }, [activeTool, enableDrawingMode, addRectangle, addEllipse, addLine, addPolygon, addText]);
+  }, [activeTool, enableDrawingMode, enablePenMode, addRectangle, addEllipse, addLine, addPolygon, addText]);
 
   const handleStrokeChange = useCallback((newStroke: StrokeStyle) => {
     setStroke(newStroke);
@@ -307,12 +315,38 @@ const CanvasEditor = () => {
     }
   }, [showGCodePanel, canvas]);
 
+  // Track selection + canvas content so mobile can enable/disable buttons correctly
+  useEffect(() => {
+    if (!canvas) return;
+
+    const sync = () => {
+      setCanDeleteSelected(canvas.getActiveObjects().length > 0);
+      setCanClearCanvas(canvas.getObjects().length > 0);
+    };
+
+    sync();
+
+    canvas.on('selection:created', sync);
+    canvas.on('selection:updated', sync);
+    canvas.on('selection:cleared', sync);
+    canvas.on('object:added', sync);
+    canvas.on('object:removed', sync);
+
+    return () => {
+      canvas.off('selection:created', sync);
+      canvas.off('selection:updated', sync);
+      canvas.off('selection:cleared', sync);
+      canvas.off('object:added', sync);
+      canvas.off('object:removed', sync);
+    };
+  }, [canvas]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       switch (e.key.toLowerCase()) {
-        case 'v': setActiveTool('select'); enableDrawingMode(false); break;
-        case 'h': setActiveTool('pan'); enableDrawingMode(false); break;
+        case 'v': setActiveTool('select'); enableDrawingMode(false); enablePenMode(false); break;
+        case 'h': setActiveTool('pan'); enableDrawingMode(false); enablePenMode(false); break;
         case 'b': handleToolChange('pencil'); break;
         case 'l': handleToolChange('line'); break;
         case 'r': handleToolChange('rectangle'); break;
@@ -326,7 +360,7 @@ const CanvasEditor = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [enableDrawingMode, handleToolChange, deleteSelected]);
+  }, [enableDrawingMode, enablePenMode, handleToolChange, deleteSelected]);
 
   return (
     <div ref={containerRef} className="min-h-screen bg-background flex flex-col">
@@ -390,9 +424,30 @@ const CanvasEditor = () => {
 
         {/* Canvas area */}
         <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-4 min-h-0">
-          <DrawingToolbar activeTool={activeTool} onToolChange={handleToolChange} onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))} onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))} onReset={resetView} onUpload={handleUploadClick} onTrace={handleTrace} onClear={handleClear} onFullscreen={handleFullscreen} onGCode={() => setShowGCodePanel(true)} on3D={() => setShow3DPanel(true)} hasImage={hasImage} hasSvg={!!svgContent} isTracing={isTracing} isFullscreen={isFullscreen} canvas={canvas} svgContent={svgContent} />
+          <DrawingToolbar
+            activeTool={activeTool}
+            onToolChange={handleToolChange}
+            onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))}
+            onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))}
+            onReset={resetView}
+            onUpload={handleUploadClick}
+            onTrace={handleTrace}
+            onClear={handleClear}
+            onDeleteSelected={deleteSelected}
+            canDeleteSelected={canDeleteSelected}
+            canClear={canClearCanvas}
+            onFullscreen={handleFullscreen}
+            onGCode={() => setShowGCodePanel(true)}
+            on3D={() => setShow3DPanel(true)}
+            hasImage={hasImage}
+            hasSvg={!!svgContent}
+            isTracing={isTracing}
+            isFullscreen={isFullscreen}
+            canvas={canvas}
+            svgContent={svgContent}
+          />
           <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px]" style={{ touchAction: 'none' }}>
-            <canvas ref={canvasRef} className="max-w-full max-h-full" />
+            <canvas ref={canvasRef} className="max-w-full max-h-full" style={{ touchAction: 'none' }} />
             
             {/* SVG trace overlay */}
             {svgContent && showSvgOverlay && hasImage && (
