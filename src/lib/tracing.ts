@@ -24,6 +24,27 @@ export const defaultTraceSettings: TraceSettings = {
   strokeWidth: 1,
 };
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+// Process image in chunks to prevent blocking
+const processInChunks = async <T>(
+  items: number,
+  chunkSize: number,
+  processor: (start: number, end: number) => T[]
+): Promise<T[]> => {
+  const results: T[] = [];
+  for (let i = 0; i < items; i += chunkSize) {
+    const end = Math.min(i + chunkSize, items);
+    results.push(...processor(i, end));
+    // Yield to main thread
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+  return results;
+};
+
 // Simple edge detection and path tracing algorithm
 export const traceImageToSVG = async (
   imageData: ImageData,
@@ -32,26 +53,36 @@ export const traceImageToSVG = async (
   const { width, height, data } = imageData;
   const { threshold, blackOnWhite, color, strokeWidth, turdSize } = settings;
 
-  // Convert to grayscale and threshold
-  const binaryData: boolean[][] = [];
-  for (let y = 0; y < height; y++) {
-    binaryData[y] = [];
-    for (let x = 0; x < width; x++) {
-      const idx = (y * width + x) * 4;
-      const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-      const alpha = data[idx + 3];
-      
-      // Consider alpha channel
-      if (alpha < 128) {
-        binaryData[y][x] = blackOnWhite;
-      } else {
-        binaryData[y][x] = blackOnWhite ? gray < threshold : gray >= threshold;
+  // Convert to grayscale and threshold with chunking
+  const binaryData: boolean[][] = new Array(height);
+  
+  const chunkSize = 50; // Process 50 rows at a time
+  for (let startY = 0; startY < height; startY += chunkSize) {
+    const endY = Math.min(startY + chunkSize, height);
+    
+    for (let y = startY; y < endY; y++) {
+      binaryData[y] = new Array(width);
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+        const alpha = data[idx + 3];
+        
+        if (alpha < 128) {
+          binaryData[y][x] = blackOnWhite;
+        } else {
+          binaryData[y][x] = blackOnWhite ? gray < threshold : gray >= threshold;
+        }
       }
+    }
+    
+    // Yield to main thread periodically
+    if (startY % (chunkSize * 2) === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
 
   // Find contours using marching squares
-  const contours = findContours(binaryData, width, height, turdSize);
+  const contours = await findContours(binaryData, width, height, turdSize);
 
   // Generate SVG
   let pathD = "";
@@ -61,9 +92,9 @@ export const traceImageToSVG = async (
     // Simplify path
     const simplified = douglasPeucker(contour, settings.optTolerance * 2);
     
-    pathD += `M ${simplified[0].x} ${simplified[0].y} `;
+    pathD += `M ${simplified[0].x.toFixed(1)} ${simplified[0].y.toFixed(1)} `;
     for (let i = 1; i < simplified.length; i++) {
-      pathD += `L ${simplified[i].x} ${simplified[i].y} `;
+      pathD += `L ${simplified[i].x.toFixed(1)} ${simplified[i].y.toFixed(1)} `;
     }
     pathD += "Z ";
   }
@@ -73,23 +104,24 @@ export const traceImageToSVG = async (
   </svg>`;
 };
 
-interface Point {
-  x: number;
-  y: number;
-}
-
 // Marching squares algorithm to find contours
-function findContours(
+async function findContours(
   binary: boolean[][],
   width: number,
   height: number,
   minSize: number
-): Point[][] {
+): Promise<Point[][]> {
   const visited = new Set<string>();
   const contours: Point[][] = [];
+  const maxContours = 500; // Limit number of contours to prevent hanging
 
-  for (let y = 0; y < height - 1; y++) {
-    for (let x = 0; x < width - 1; x++) {
+  for (let y = 0; y < height - 1 && contours.length < maxContours; y++) {
+    // Yield periodically
+    if (y % 100 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    
+    for (let x = 0; x < width - 1 && contours.length < maxContours; x++) {
       const key = `${x},${y}`;
       if (visited.has(key)) continue;
 
@@ -126,7 +158,7 @@ function traceContour(
   let y = startY;
   let dir = 0; // 0: right, 1: down, 2: left, 3: up
 
-  const maxSteps = width * height;
+  const maxSteps = Math.min(width * height, 5000); // Limit steps
   let steps = 0;
 
   do {
@@ -158,7 +190,7 @@ function traceContour(
     // Bounds check
     if (x < 0 || x >= width - 1 || y < 0 || y >= height - 1) break;
 
-  } while (!(x === startX && y === startY) && contour.length < 10000);
+  } while (!(x === startX && y === startY) && contour.length < 5000);
 
   return contour;
 }

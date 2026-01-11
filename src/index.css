@@ -40,14 +40,19 @@
     --canvas-bg: 220 16% 6%;
     --toolbar-bg: 220 16% 10%;
     --panel-bg: 220 16% 12%;
-    --panel-border: 220 14% 18%;
+    --panel-border: 220 14% 22%;
     --success: 160 70% 45%;
     --warning: 45 90% 55%;
     --info: 200 80% 55%;
     
+    /* Glassmorphism */
+    --glass-bg: 220 16% 12% / 0.7;
+    --glass-border: 220 14% 30% / 0.5;
+    --glass-blur: 16px;
+    
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(185 70% 50%) 0%, hsl(200 80% 55%) 100%);
-    --gradient-panel: linear-gradient(180deg, hsl(220 16% 14%) 0%, hsl(220 16% 10%) 100%);
+    --gradient-panel: linear-gradient(180deg, hsl(220 16% 14% / 0.8) 0%, hsl(220 16% 10% / 0.8) 100%);
     --gradient-glow: radial-gradient(ellipse at center, hsl(185 70% 50% / 0.15) 0%, transparent 70%);
     
     /* Shadows */
@@ -85,12 +90,24 @@
 
 @layer components {
   .panel {
-    @apply bg-panel border border-panel-border rounded-lg;
-    box-shadow: var(--shadow-md);
+    @apply rounded-xl border;
+    background: hsl(var(--glass-bg));
+    border-color: hsl(var(--glass-border));
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--shadow-lg), inset 0 1px 0 hsl(220 14% 30% / 0.2);
   }
   
   .panel-header {
-    @apply px-4 py-3 border-b border-panel-border font-mono text-xs uppercase tracking-wider text-muted-foreground;
+    @apply px-4 py-3 border-b font-mono text-xs uppercase tracking-wider text-muted-foreground;
+    border-color: hsl(var(--glass-border));
+  }
+  
+  .glass {
+    background: hsl(var(--glass-bg));
+    border: 1px solid hsl(var(--glass-border));
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
   }
   
   .toolbar-button {

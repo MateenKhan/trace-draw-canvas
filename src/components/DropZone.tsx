@@ -48,7 +48,7 @@ export const DropZone = ({ onFileSelect, hasImage }: DropZoneProps) => {
 
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center cursor-pointer group"
+      className="absolute inset-0 flex items-center justify-center cursor-pointer group p-4"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onClick={handleClick}
@@ -61,20 +61,20 @@ export const DropZone = ({ onFileSelect, hasImage }: DropZoneProps) => {
         className="hidden"
       />
       
-      <div className="flex flex-col items-center gap-4 p-8 rounded-2xl border-2 border-dashed border-panel-border bg-panel/50 backdrop-blur-sm transition-all group-hover:border-primary/50 group-hover:bg-panel/80">
-        <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-          <Upload className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
+      <div className="flex flex-col items-center gap-3 md:gap-4 p-6 md:p-8 rounded-2xl border-2 border-dashed glass transition-all group-hover:border-primary/50">
+        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-secondary/50 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+          <Upload className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
         <div className="text-center">
-          <p className="text-lg font-medium text-foreground">
+          <p className="text-base md:text-lg font-medium text-foreground">
             Drop an image here
           </p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs md:text-sm text-muted-foreground mt-1">
             or click to browse
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <ImageIcon className="w-4 h-4" />
+        <div className="flex items-center gap-2 text-[10px] md:text-xs text-muted-foreground">
+          <ImageIcon className="w-3 h-3 md:w-4 md:h-4" />
           <span>PNG, JPG, GIF, WebP, BMP</span>
         </div>
       </div>
