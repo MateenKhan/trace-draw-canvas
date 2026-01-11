@@ -33,6 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ExportMenu } from "@/components/ExportMenu";
+import { BrushSizeSlider } from "@/components/BrushSizeSlider";
 import { Canvas as FabricCanvas } from "fabric";
 
 interface DrawingToolbarProps {
@@ -56,6 +57,9 @@ interface DrawingToolbarProps {
   isFullscreen: boolean;
   canvas: FabricCanvas | null;
   svgContent: string | null;
+  brushSize: number;
+  onBrushSizeChange: (size: number) => void;
+  strokeColor: string;
 }
 
 const navigationTools = [
@@ -105,7 +109,11 @@ export const DrawingToolbar = ({
   isFullscreen,
   canvas,
   svgContent,
+  brushSize,
+  onBrushSizeChange,
+  strokeColor,
 }: DrawingToolbarProps) => {
+  const isPenOrPencil = activeTool === 'pen' || activeTool === 'pencil';
   const renderToolGroup = (tools: typeof navigationTools, borderRight = true) => (
     <div className={cn("flex items-center gap-0.5", borderRight && "pr-1.5 md:pr-2 border-r border-panel-border")}>
       {tools.map((tool) => (
@@ -131,12 +139,13 @@ export const DrawingToolbar = ({
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-1 p-1.5 md:p-2 glass rounded-xl border border-panel-border animate-fade-in">
-      {/* Navigation tools */}
-      {renderToolGroup(navigationTools)}
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-1 p-1.5 md:p-2 glass rounded-xl border border-panel-border animate-fade-in">
+        {/* Navigation tools */}
+        {renderToolGroup(navigationTools)}
 
-      {/* Drawing tools */}
-      {renderToolGroup(drawingTools)}
+        {/* Drawing tools */}
+        {renderToolGroup(drawingTools)}
 
       {/* Shape tools */}
       {renderToolGroup(shapeTools)}
@@ -267,5 +276,14 @@ export const DrawingToolbar = ({
         />
       </div>
     </div>
+    
+    {/* Brush size slider - shown when pen/pencil is active */}
+    <BrushSizeSlider
+      size={brushSize}
+      onChange={onBrushSizeChange}
+      isVisible={isPenOrPencil}
+      strokeColor={strokeColor}
+    />
+  </div>
   );
 };
