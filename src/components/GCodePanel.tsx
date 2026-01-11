@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -19,10 +18,11 @@ import {
   SkipForward,
   Download,
   Settings,
-  Wrench,
   Zap,
   Clock,
   RotateCcw,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   GCodeSettings,
@@ -30,24 +30,53 @@ import {
   DEFAULT_GCODE_SETTINGS,
   generateGCode,
   estimateMachiningTime,
+  PathPoint,
 } from "@/lib/gcode";
 import { cn } from "@/lib/utils";
+
+interface SimulationState {
+  isPlaying: boolean;
+  progress: number;
+  currentLine: number;
+  currentPoint: PathPoint | null;
+  showOverlay: boolean;
+}
 
 interface GCodePanelProps {
   toolPaths: ToolPath[];
   onExportGCode: (gcode: string) => void;
+  onSimulationChange?: (state: SimulationState) => void;
 }
 
-export const GCodePanel = ({ toolPaths, onExportGCode }: GCodePanelProps) => {
+export const GCodePanel = ({ toolPaths, onExportGCode, onSimulationChange }: GCodePanelProps) => {
   const [settings, setSettings] = useState<GCodeSettings>(DEFAULT_GCODE_SETTINGS);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentLine, setCurrentLine] = useState(0);
-  const animationRef = useRef<number | null>(null);
+  const [showOverlay, setShowOverlay] = useState(true);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const estimatedTime = estimateMachiningTime(toolPaths, settings);
   const gcode = generateGCode(toolPaths, settings);
   const gcodeLines = gcode.split('\n');
+
+  // Calculate current point
+  const allPoints = toolPaths.flatMap(tp => tp.points);
+  const totalPoints = allPoints.length;
+  const currentPoint: PathPoint | null = totalPoints > 0 
+    ? allPoints[Math.min(Math.floor((progress / 100) * totalPoints), totalPoints - 1)] 
+    : null;
+
+  // Notify parent of simulation state changes
+  useEffect(() => {
+    onSimulationChange?.({
+      isPlaying,
+      progress,
+      currentLine,
+      currentPoint,
+      showOverlay,
+    });
+  }, [isPlaying, progress, currentLine, currentPoint, showOverlay, onSimulationChange]);
 
   // Simulation controls
   const play = useCallback(() => {
@@ -56,18 +85,12 @@ export const GCodePanel = ({ toolPaths, onExportGCode }: GCodePanelProps) => {
 
   const pause = useCallback(() => {
     setIsPlaying(false);
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
   }, []);
 
   const reset = useCallback(() => {
     setIsPlaying(false);
     setProgress(0);
     setCurrentLine(0);
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
   }, []);
 
   const skipForward = useCallback(() => {
@@ -82,27 +105,34 @@ export const GCodePanel = ({ toolPaths, onExportGCode }: GCodePanelProps) => {
 
   // Animation loop
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || gcodeLines.length === 0) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
 
-    const animate = () => {
+    intervalRef.current = setInterval(() => {
       setCurrentLine((prev) => {
-        if (prev >= gcodeLines.length - 1) {
+        const nextLine = prev + 1;
+        if (nextLine >= gcodeLines.length) {
           setIsPlaying(false);
+          setProgress(100);
           return prev;
         }
-        return prev + 1;
+        setProgress((nextLine / gcodeLines.length) * 100);
+        return nextLine;
       });
-      setProgress((prev) => {
-        const newProgress = (currentLine / gcodeLines.length) * 100;
-        return Math.min(newProgress, 100);
-      });
+    }, 80);
 
-      animationRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-
-    const timeout = setTimeout(animate, 50); // Speed of simulation
-    return () => clearTimeout(timeout);
-  }, [isPlaying, currentLine, gcodeLines.length]);
+  }, [isPlaying, gcodeLines.length]);
 
   const handleExport = useCallback(() => {
     onExportGCode(gcode);
@@ -317,6 +347,22 @@ export const GCodePanel = ({ toolPaths, onExportGCode }: GCodePanelProps) => {
 
         {/* Simulation */}
         <TabsContent value="simulate" className="space-y-4 p-3">
+          {/* Overlay toggle */}
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              Show on Canvas
+            </Label>
+            <Button
+              variant={showOverlay ? "default" : "outline"}
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setShowOverlay(!showOverlay)}
+            >
+              {showOverlay ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              {showOverlay ? "Visible" : "Hidden"}
+            </Button>
+          </div>
+
           {/* Progress bar */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
@@ -325,7 +371,10 @@ export const GCodePanel = ({ toolPaths, onExportGCode }: GCodePanelProps) => {
             </div>
             <div className="h-2 bg-secondary rounded-full overflow-hidden">
               <div
-                className="h-full bg-primary transition-all duration-100"
+                className={cn(
+                  "h-full bg-gradient-to-r from-primary to-success transition-all duration-100",
+                  isPlaying && "animate-pulse"
+                )}
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -333,17 +382,21 @@ export const GCodePanel = ({ toolPaths, onExportGCode }: GCodePanelProps) => {
 
           {/* Playback controls */}
           <div className="flex items-center justify-center gap-2">
-            <Button variant="toolbar" size="icon" onClick={reset}>
+            <Button variant="toolbar" size="icon" onClick={reset} title="Reset">
               <RotateCcw className="w-4 h-4" />
             </Button>
-            <Button variant="toolbar" size="icon" onClick={skipBack}>
+            <Button variant="toolbar" size="icon" onClick={skipBack} title="Skip Back">
               <SkipBack className="w-4 h-4" />
             </Button>
             <Button
-              variant={isPlaying ? "toolbar-active" : "default"}
+              variant={isPlaying ? "default" : "default"}
               size="icon"
-              className="w-12 h-12"
+              className={cn(
+                "w-12 h-12",
+                isPlaying && "bg-success hover:bg-success/80"
+              )}
               onClick={isPlaying ? pause : play}
+              title={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying ? (
                 <Pause className="w-5 h-5" />
@@ -351,7 +404,7 @@ export const GCodePanel = ({ toolPaths, onExportGCode }: GCodePanelProps) => {
                 <Play className="w-5 h-5" />
               )}
             </Button>
-            <Button variant="toolbar" size="icon" onClick={skipForward}>
+            <Button variant="toolbar" size="icon" onClick={skipForward} title="Skip Forward">
               <SkipForward className="w-4 h-4" />
             </Button>
           </div>
@@ -361,10 +414,19 @@ export const GCodePanel = ({ toolPaths, onExportGCode }: GCodePanelProps) => {
             <div className="text-xs text-muted-foreground mb-1">
               Line {currentLine + 1} / {gcodeLines.length}
             </div>
-            <code className="text-xs font-mono text-primary">
-              {gcodeLines[currentLine] || ''}
+            <code className="text-xs font-mono text-primary block truncate">
+              {gcodeLines[currentLine] || 'Ready'}
             </code>
           </div>
+
+          {/* Current position */}
+          {currentPoint && (
+            <div className="flex items-center gap-4 text-xs font-mono">
+              <span className="text-muted-foreground">Position:</span>
+              <span className="text-primary">X: {currentPoint.x.toFixed(2)}</span>
+              <span className="text-primary">Y: {currentPoint.y.toFixed(2)}</span>
+            </div>
+          )}
 
           {/* Estimated time */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

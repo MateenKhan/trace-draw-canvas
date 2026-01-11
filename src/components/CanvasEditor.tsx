@@ -9,8 +9,10 @@ import { SvgPreview } from "@/components/SvgPreview";
 import { ImageUploadDialog } from "@/components/ImageUploadDialog";
 import { GCodeDialog } from "@/components/GCodeDialog";
 import { LayersPanel } from "@/components/LayersPanel";
+import { ToolpathOverlay } from "@/components/ToolpathOverlay";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
 import { Layer, LayerGroup, createDefaultLayers } from "@/lib/layers";
+import { ToolPath, pathToPoints, PathPoint } from "@/lib/gcode";
 import { 
   DrawingTool, 
   StrokeStyle, 
@@ -27,6 +29,14 @@ import { Layers2, Settings2, X, Palette, PanelRightClose, PanelRight } from "luc
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+
+interface SimulationState {
+  isPlaying: boolean;
+  progress: number;
+  currentLine: number;
+  currentPoint: PathPoint | null;
+  showOverlay: boolean;
+}
 
 const CanvasEditor = () => {
   // Tool state
@@ -58,7 +68,15 @@ const CanvasEditor = () => {
   const [showGCodePanel, setShowGCodePanel] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Canvas hook
+  // G-code simulation state
+  const [simulationState, setSimulationState] = useState<SimulationState>({
+    isPlaying: false,
+    progress: 0,
+    currentLine: 0,
+    currentPoint: null,
+    showOverlay: true,
+  });
+  const [toolPaths, setToolPaths] = useState<ToolPath[]>([]);
   const {
     canvasRef,
     canvas,
@@ -224,6 +242,41 @@ const CanvasEditor = () => {
     }
   }, []);
 
+  // Handle simulation state changes and extract toolpaths
+  const handleSimulationChange = useCallback((state: SimulationState) => {
+    setSimulationState(state);
+  }, []);
+
+  // Extract toolpaths when G-code panel opens
+  useEffect(() => {
+    if (showGCodePanel && canvas) {
+      const objects = canvas.getObjects();
+      const paths: ToolPath[] = [];
+
+      objects.forEach((obj, index) => {
+        const pathData = obj.toSVG?.();
+        if (!pathData) return;
+
+        const pathMatch = pathData.match(/d="([^"]+)"/);
+        if (pathMatch) {
+          const points = pathToPoints(pathMatch[1], 1);
+          if (points.length > 0) {
+            paths.push({
+              id: `path-${index}`,
+              name: `Object ${index + 1}`,
+              type: 'profile',
+              points,
+              depth: 3,
+              color: '#00ff00',
+            });
+          }
+        }
+      });
+
+      setToolPaths(paths);
+    }
+  }, [showGCodePanel, canvas]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -310,11 +363,24 @@ const CanvasEditor = () => {
           <DrawingToolbar activeTool={activeTool} onToolChange={handleToolChange} onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))} onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))} onReset={resetView} onUpload={handleUploadClick} onTrace={handleTrace} onClear={handleClear} onFullscreen={handleFullscreen} onGCode={() => setShowGCodePanel(true)} hasImage={hasImage} hasSvg={!!svgContent} isTracing={isTracing} isFullscreen={isFullscreen} canvas={canvas} svgContent={svgContent} />
           <div className="flex-1 canvas-container relative flex items-center justify-center rounded-xl border border-panel-border overflow-hidden min-h-[300px]" style={{ touchAction: 'none' }}>
             <canvas ref={canvasRef} className="max-w-full max-h-full" />
+            
+            {/* SVG trace overlay */}
             {svgContent && showSvgOverlay && hasImage && (
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center" style={{ mixBlendMode: "normal" }}>
                 <div dangerouslySetInnerHTML={{ __html: svgContent }} className="max-w-full max-h-full w-full h-full [&_svg]:w-full [&_svg]:h-full" style={{ width: canvas?.getWidth(), height: canvas?.getHeight() }} />
               </div>
             )}
+            
+            {/* G-code toolpath overlay */}
+            <ToolpathOverlay
+              toolPaths={toolPaths}
+              progress={simulationState.progress}
+              currentPoint={simulationState.currentPoint}
+              isPlaying={simulationState.isPlaying}
+              width={canvas?.getWidth() || 800}
+              height={canvas?.getHeight() || 600}
+              show={simulationState.showOverlay && showGCodePanel}
+            />
           </div>
         </main>
 
@@ -327,7 +393,12 @@ const CanvasEditor = () => {
       </div>
 
       <ImageUploadDialog open={showImageUpload} onOpenChange={setShowImageUpload} onFileSelect={handleFileSelect} />
-      <GCodeDialog open={showGCodePanel} onOpenChange={setShowGCodePanel} canvas={canvas} />
+      <GCodeDialog 
+        open={showGCodePanel} 
+        onOpenChange={setShowGCodePanel} 
+        canvas={canvas}
+        onSimulationChange={handleSimulationChange}
+      />
     </div>
   );
 };
