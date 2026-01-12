@@ -35,9 +35,15 @@ export const ToolpathOverlay = memo(({
     rotation: 0,
   });
 
-  // Touch gesture state
-  const touchStartRef = useRef<{ x: number; y: number; distance: number; angle: number } | null>(null);
-  const lastTransformRef = useRef<TransformState>(transform);
+  // Touch gesture state - use refs for gesture tracking
+  const gestureRef = useRef<{
+    startX: number;
+    startY: number;
+    startDistance: number;
+    startAngle: number;
+    startTransform: TransformState;
+  } | null>(null);
+  const lastTapTimeRef = useRef<number>(0);
 
   // Calculate bounds of all toolpaths for centering
   const bounds = useMemo(() => {
@@ -91,7 +97,6 @@ export const ToolpathOverlay = memo(({
   // Reset transform when toolpaths change
   useEffect(() => {
     setTransform(initialTransform);
-    lastTransformRef.current = initialTransform;
   }, [initialTransform]);
 
   // Convert toolpath points to SVG path data
@@ -164,36 +169,37 @@ export const ToolpathOverlay = memo(({
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const touches = e.touches;
     const center = getTouchCenter(touches);
     
-    touchStartRef.current = {
-      x: center.x,
-      y: center.y,
-      distance: getTouchDistance(touches),
-      angle: getTouchAngle(touches),
+    gestureRef.current = {
+      startX: center.x,
+      startY: center.y,
+      startDistance: getTouchDistance(touches),
+      startAngle: getTouchAngle(touches),
+      startTransform: { ...transform },
     };
-    lastTransformRef.current = transform;
   }, [transform, getTouchCenter, getTouchDistance, getTouchAngle]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
-    if (!touchStartRef.current) return;
+    e.stopPropagation();
+    if (!gestureRef.current) return;
 
     const touches = e.touches;
     const center = getTouchCenter(touches);
-    const start = touchStartRef.current;
-    const last = lastTransformRef.current;
+    const gesture = gestureRef.current;
 
     // Single finger pan
     if (touches.length === 1) {
-      const dx = center.x - start.x;
-      const dy = center.y - start.y;
+      const dx = center.x - gesture.startX;
+      const dy = center.y - gesture.startY;
       
       setTransform({
-        ...last,
-        translateX: last.translateX + dx,
-        translateY: last.translateY + dy,
+        ...gesture.startTransform,
+        translateX: gesture.startTransform.translateX + dx,
+        translateY: gesture.startTransform.translateY + dy,
       });
     }
     // Two finger pinch zoom and rotate
@@ -201,39 +207,50 @@ export const ToolpathOverlay = memo(({
       const currentDistance = getTouchDistance(touches);
       const currentAngle = getTouchAngle(touches);
       
-      const scaleFactor = start.distance > 0 ? currentDistance / start.distance : 1;
-      const newScale = Math.max(0.5, Math.min(5, last.scale * scaleFactor));
+      const scaleFactor = gesture.startDistance > 0 ? currentDistance / gesture.startDistance : 1;
+      const newScale = Math.max(0.5, Math.min(5, gesture.startTransform.scale * scaleFactor));
       
-      const angleDiff = currentAngle - start.angle;
-      const newRotation = last.rotation + angleDiff;
+      const angleDiff = currentAngle - gesture.startAngle;
+      const newRotation = gesture.startTransform.rotation + angleDiff;
       
       // Pan with two fingers
-      const dx = center.x - start.x;
-      const dy = center.y - start.y;
+      const dx = center.x - gesture.startX;
+      const dy = center.y - gesture.startY;
       
       setTransform({
         scale: newScale,
-        translateX: last.translateX + dx,
-        translateY: last.translateY + dy,
+        translateX: gesture.startTransform.translateX + dx,
+        translateY: gesture.startTransform.translateY + dy,
         rotation: newRotation,
       });
     }
   }, [getTouchCenter, getTouchDistance, getTouchAngle]);
 
-  const handleTouchEnd = useCallback(() => {
-    touchStartRef.current = null;
-    lastTransformRef.current = transform;
-  }, [transform]);
-
-  // Double tap to reset
-  const lastTapRef = useRef<number>(0);
-  const handleDoubleTap = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    // Check for double tap to reset
     const now = Date.now();
-    if (now - lastTapRef.current < 300) {
+    if (e.touches.length === 0 && now - lastTapTimeRef.current < 300) {
       setTransform(initialTransform);
-      lastTransformRef.current = initialTransform;
     }
-    lastTapRef.current = now;
+    lastTapTimeRef.current = now;
+    
+    if (e.touches.length === 0) {
+      gestureRef.current = null;
+    } else if (e.touches.length === 1 && gestureRef.current) {
+      // Reset gesture for single finger after lifting one finger
+      const touch = e.touches[0];
+      gestureRef.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startDistance: 0,
+        startAngle: 0,
+        startTransform: { ...transform },
+      };
+    }
+  }, [transform, initialTransform]);
+
+  const handleDoubleTap = useCallback(() => {
+    setTransform(initialTransform);
   }, [initialTransform]);
 
   if (!show || toolPaths.length === 0) return null;
@@ -243,23 +260,21 @@ export const ToolpathOverlay = memo(({
   return (
     <div 
       ref={containerRef}
-      className="relative touch-none overflow-hidden"
+      className="absolute inset-0 touch-none overflow-hidden"
       style={{ width, height }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      onClick={handleDoubleTap}
     >
       <svg 
-        width={width * 2} 
-        height={height * 2} 
-        className="absolute"
+        width={width} 
+        height={height} 
+        className="absolute inset-0"
         style={{
           transform: transformStyle,
-          transformOrigin: '0 0',
-          left: -width / 2,
-          top: -height / 2,
+          transformOrigin: 'center center',
         }}
+        viewBox={`0 0 ${width} ${height}`}
       >
         {/* Grid lines for reference */}
         <defs>
