@@ -172,10 +172,10 @@ export const DrawingToolbar = ({
           <Button
             variant={isActive ? "toolbar-active" : "toolbar"}
             size="icon"
-            className={cn(compact ? "w-9 h-9" : "w-10 h-10")}
+            className={cn(compact ? "w-11 h-11" : "w-12 h-12")}
             onClick={() => onToolChange(tool.id)}
           >
-            <tool.icon className={cn(compact ? "w-4 h-4" : "w-5 h-5")} />
+            <tool.icon className={cn(compact ? "w-5 h-5" : "w-6 h-6")} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -200,11 +200,11 @@ export const DrawingToolbar = ({
           <Button
             variant={active ? "toolbar-active" : "toolbar"}
             size="icon"
-            className={cn(compact ? "w-9 h-9" : "w-10 h-10", className)}
+            className={cn(compact ? "w-11 h-11" : "w-12 h-12", className)}
             onClick={onClick}
             disabled={disabled}
           >
-            <Icon className={cn(compact ? "w-4 h-4" : "w-5 h-5")} />
+            <Icon className={cn(compact ? "w-5 h-5" : "w-6 h-6")} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -217,7 +217,7 @@ export const DrawingToolbar = ({
   const activeGroup = toolGroups[activeGroupIndex];
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col gap-2 p-3 pb-safe bg-background/80 backdrop-blur-lg border-t border-panel-border">
       {/* Brush size slider - shown when pen/pencil is active */}
       <BrushSizeSlider
         size={brushSize}
