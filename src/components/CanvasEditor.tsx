@@ -429,38 +429,39 @@ const CanvasEditor = () => {
             )}
           </div>
 
-          {/* Bottom toolbar - always visible (sticky) */}
-          <div className="sticky bottom-0 left-0 right-0 p-2 md:p-3 flex justify-center relative z-50 pb-safe shrink-0 pointer-events-auto">
-            <DrawingToolbar
-              activeTool={activeTool}
-              onToolChange={handleToolChange}
-              onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))}
-              onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))}
-              onReset={resetView}
-              onUpload={handleUploadClick}
-              onTrace={handleTrace}
-              onClear={handleClear}
-              onDeleteSelected={deleteSelected}
-              canDeleteSelected={canDeleteSelected}
-              canClear={canClearCanvas}
-              onFullscreen={handleFullscreen}
-              onGCode={() => setShowGCodePanel(true)}
-              on3D={() => setShow3DPanel(true)}
-              hasImage={hasImage}
-              hasSvg={!!svgContent}
-              isTracing={isTracing}
-              isFullscreen={isFullscreen}
-              canvas={canvas}
-              svgContent={svgContent}
-              brushSize={stroke.width}
-              onBrushSizeChange={(size) => handleStrokeChange({ ...stroke, width: size })}
-              strokeColor={stroke.color}
-              onToggleSettings={() => setShowMobileSettings(!showMobileSettings)}
-              onToggleLayers={() => setShowLayersPanel(!showLayersPanel)}
-              showLayersPanel={showLayersPanel}
-            />
-          </div>
+          {/* Spacer for fixed bottom toolbar */}
+          <div className="h-24 shrink-0" />
         </main>
+        
+        {/* Fixed Bottom Toolbar */}
+        <DrawingToolbar
+          activeTool={activeTool}
+          onToolChange={handleToolChange}
+          onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))}
+          onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))}
+          onReset={resetView}
+          onUpload={handleUploadClick}
+          onTrace={handleTrace}
+          onClear={handleClear}
+          onDeleteSelected={deleteSelected}
+          canDeleteSelected={canDeleteSelected}
+          canClear={canClearCanvas}
+          onFullscreen={handleFullscreen}
+          onGCode={() => setShowGCodePanel(true)}
+          on3D={() => setShow3DPanel(true)}
+          hasImage={hasImage}
+          hasSvg={!!svgContent}
+          isTracing={isTracing}
+          isFullscreen={isFullscreen}
+          canvas={canvas}
+          svgContent={svgContent}
+          brushSize={stroke.width}
+          onBrushSizeChange={(size) => handleStrokeChange({ ...stroke, width: size })}
+          strokeColor={stroke.color}
+          onToggleSettings={() => setShowMobileSettings(!showMobileSettings)}
+          onToggleLayers={() => setShowLayersPanel(!showLayersPanel)}
+          showLayersPanel={showLayersPanel}
+        />
 
         {/* Right Sidebar - Layers Panel */}
         <aside className={cn("hidden lg:flex flex-col border-l border-panel-border overflow-hidden transition-all duration-300", showLayersPanel ? "w-72" : "w-0")}>
