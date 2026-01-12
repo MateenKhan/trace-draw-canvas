@@ -27,14 +27,11 @@ import {
   PanelRightClose,
   PanelRight,
   Image,
-  Sun,
-  Palette,
-  Droplet,
-  Layers,
-  Triangle,
   Wand2,
   Eraser,
   SlidersHorizontal,
+  Play,
+  Shapes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool } from "@/lib/types";
@@ -77,25 +74,24 @@ interface DrawingToolbarProps {
   showLayersPanel?: boolean;
 }
 
-// Top row - category buttons with labels (like Lightroom's Auto, Light, Color, etc.)
-const categoryButtons = [
-  { id: 'upload', icon: Image, label: 'Auto' },
-  { id: 'light', icon: Sun, label: 'Light' },
-  { id: 'color', icon: Palette, label: 'Color' },
-  { id: 'blur', icon: Droplet, label: 'Blur' },
-  { id: 'effects', icon: Layers, label: 'Effects' },
-  { id: 'detail', icon: Triangle, label: 'Detail' },
-];
+// Shape tools cycle order for mobile
+const shapeToolsCycle: DrawingTool[] = ['line', 'rectangle', 'ellipse', 'polygon'];
 
-// Bottom row - tool buttons (drawing tools)
-const toolButtons = [
-  { id: 'select' as DrawingTool, icon: MousePointer2, label: 'Select' },
-  { id: 'pen' as DrawingTool, icon: Pen, label: 'Draw' },
-  { id: 'rectangle' as DrawingTool, icon: Square, label: 'Shape' },
-  { id: 'settings', icon: SlidersHorizontal, label: 'Adjust' },
-  { id: 'trace', icon: Wand2, label: 'Trace' },
-  { id: 'eraser', icon: Eraser, label: 'Erase' },
-];
+// Get icon for current shape tool
+const getShapeIcon = (tool: DrawingTool) => {
+  switch (tool) {
+    case 'line': return Minus;
+    case 'rectangle': return Square;
+    case 'ellipse': return Circle;
+    case 'polygon': return Hexagon;
+    default: return Shapes;
+  }
+};
+
+// Check if tool is a shape tool
+const isShapeTool = (tool: DrawingTool): boolean => {
+  return shapeToolsCycle.includes(tool);
+};
 
 // Desktop tools arrays
 const selectionTools = [
@@ -150,26 +146,34 @@ export const DrawingToolbar = ({
   showLayersPanel,
 }: DrawingToolbarProps) => {
   const isPenOrPencil = activeTool === 'pen' || activeTool === 'pencil';
-  const [activeCategory, setActiveCategory] = useState('upload');
+  const [currentShapeTool, setCurrentShapeTool] = useState<DrawingTool>('line');
 
-  const handleCategoryClick = useCallback((id: string) => {
-    setActiveCategory(id);
-    if (id === 'upload') {
-      onUpload();
-    }
-  }, [onUpload]);
+  // Cycle through shape tools on mobile
+  const handleShapeToolClick = useCallback(() => {
+    const currentIndex = shapeToolsCycle.indexOf(currentShapeTool);
+    const nextIndex = (currentIndex + 1) % shapeToolsCycle.length;
+    const nextTool = shapeToolsCycle[nextIndex];
+    setCurrentShapeTool(nextTool);
+    onToolChange(nextTool);
+  }, [currentShapeTool, onToolChange]);
 
-  const handleToolClick = useCallback((id: string) => {
+  const handleMobileToolClick = useCallback((id: string) => {
     if (id === 'settings') {
       onToggleSettings?.();
     } else if (id === 'trace') {
       onTrace();
     } else if (id === 'eraser') {
       onClear();
+    } else if (id === 'shape') {
+      handleShapeToolClick();
+    } else if (id === 'gcode') {
+      onGCode();
+    } else if (id === '3d') {
+      on3D();
     } else {
       onToolChange(id as DrawingTool);
     }
-  }, [onToolChange, onToggleSettings, onTrace, onClear]);
+  }, [onToolChange, onToggleSettings, onTrace, onClear, handleShapeToolClick, onGCode, on3D]);
 
   const ToolButton = ({ tool, isActive }: { 
     tool: typeof selectionTools[0]; 
@@ -234,51 +238,136 @@ export const DrawingToolbar = ({
         />
       </div>
 
-      {/* Mobile toolbar - Two-row layout like Lightroom */}
+      {/* Mobile toolbar - Two-row layout */}
       <div className="flex sm:hidden flex-col">
-        {/* Top row - Categories with labels */}
-        <div className="flex items-center justify-around px-2 py-3 border-b border-panel-border/50">
-          {categoryButtons.map((btn) => (
-            <button
-              key={btn.id}
-              onClick={() => handleCategoryClick(btn.id)}
-              className={cn(
-                "flex flex-col items-center gap-1.5 px-3 py-1 rounded-lg transition-colors min-w-[50px]",
-                activeCategory === btn.id 
-                  ? "text-primary" 
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <btn.icon className="w-6 h-6" />
-              <span className="text-[10px] font-medium">{btn.label}</span>
-            </button>
-          ))}
+        {/* Top row - Main tools */}
+        <div className="flex items-center justify-around px-2 py-2 border-b border-panel-border/50">
+          {/* Select */}
+          <button
+            onClick={() => handleMobileToolClick('select')}
+            className={cn(
+              "flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px]",
+              activeTool === 'select' 
+                ? "text-primary bg-primary/10" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <MousePointer2 className="w-5 h-5" />
+            <span className="text-[9px] font-medium">Select</span>
+          </button>
+
+          {/* Draw */}
+          <button
+            onClick={() => handleMobileToolClick('pen')}
+            className={cn(
+              "flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px]",
+              activeTool === 'pen' || activeTool === 'pencil'
+                ? "text-primary bg-primary/10" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Pen className="w-5 h-5" />
+            <span className="text-[9px] font-medium">Draw</span>
+          </button>
+
+          {/* Shape - cycles through line, rect, ellipse, polygon */}
+          <button
+            onClick={() => handleMobileToolClick('shape')}
+            className={cn(
+              "flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px]",
+              isShapeTool(activeTool)
+                ? "text-primary bg-primary/10" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {(() => {
+              const ShapeIcon = getShapeIcon(currentShapeTool);
+              return <ShapeIcon className="w-5 h-5" />;
+            })()}
+            <span className="text-[9px] font-medium">
+              {currentShapeTool === 'line' ? 'Line' : 
+               currentShapeTool === 'rectangle' ? 'Rect' :
+               currentShapeTool === 'ellipse' ? 'Circle' : 'Polygon'}
+            </span>
+          </button>
+
+          {/* Trace */}
+          <button
+            onClick={() => handleMobileToolClick('trace')}
+            disabled={!hasImage || isTracing}
+            className={cn(
+              "flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px]",
+              isTracing
+                ? "text-primary bg-primary/10 animate-pulse" 
+                : "text-muted-foreground hover:text-foreground",
+              (!hasImage || isTracing) && "opacity-50"
+            )}
+          >
+            <Wand2 className="w-5 h-5" />
+            <span className="text-[9px] font-medium">Trace</span>
+          </button>
+
+          {/* Upload */}
+          <button
+            onClick={onUpload}
+            className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground"
+          >
+            <Upload className="w-5 h-5" />
+            <span className="text-[9px] font-medium">Upload</span>
+          </button>
         </div>
 
-        {/* Bottom row - Tools */}
-        <div className="flex items-center justify-around px-2 py-3">
-          {toolButtons.map((btn) => {
-            const isActive = btn.id === activeTool || 
-              (btn.id === 'settings' && false) ||
-              (btn.id === 'trace' && isTracing);
-            
-            return (
-              <button
-                key={btn.id}
-                onClick={() => handleToolClick(btn.id)}
-                disabled={btn.id === 'trace' && (!hasImage || isTracing)}
-                className={cn(
-                  "flex items-center justify-center w-14 h-14 rounded-xl transition-all",
-                  isActive 
-                    ? "bg-primary text-primary-foreground shadow-glow" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary",
-                  btn.id === 'trace' && (!hasImage || isTracing) && "opacity-50"
-                )}
-              >
-                <btn.icon className="w-6 h-6" />
-              </button>
-            );
-          })}
+        {/* Bottom row - Actions & Export */}
+        <div className="flex items-center justify-around px-2 py-2">
+          {/* Adjust/Settings */}
+          <button
+            onClick={() => handleMobileToolClick('settings')}
+            className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground"
+          >
+            <SlidersHorizontal className="w-5 h-5" />
+            <span className="text-[9px] font-medium">Adjust</span>
+          </button>
+
+          {/* Simulate/G-Code */}
+          <button
+            onClick={() => handleMobileToolClick('gcode')}
+            className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground"
+          >
+            <Play className="w-5 h-5" />
+            <span className="text-[9px] font-medium">Simulate</span>
+          </button>
+
+          {/* 3D */}
+          <button
+            onClick={() => handleMobileToolClick('3d')}
+            className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground"
+          >
+            <Box className="w-5 h-5" />
+            <span className="text-[9px] font-medium">3D</span>
+          </button>
+
+          {/* Erase/Clear */}
+          <button
+            onClick={() => handleMobileToolClick('eraser')}
+            disabled={!canClear}
+            className={cn(
+              "flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground",
+              !canClear && "opacity-50"
+            )}
+          >
+            <Eraser className="w-5 h-5" />
+            <span className="text-[9px] font-medium">Clear</span>
+          </button>
+
+          {/* Export */}
+          <div className="flex flex-col items-center gap-1 min-w-[48px]">
+            <ExportMenu 
+              canvas={canvas} 
+              svgContent={svgContent} 
+              disabled={!hasImage && !hasSvg}
+            />
+            <span className="text-[9px] font-medium text-muted-foreground">Export</span>
+          </div>
         </div>
       </div>
 
