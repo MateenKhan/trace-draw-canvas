@@ -32,6 +32,7 @@ import {
   SlidersHorizontal,
   Play,
   Shapes,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool } from "@/lib/types";
@@ -72,6 +73,7 @@ interface DrawingToolbarProps {
   onToggleSettings?: () => void;
   onToggleLayers?: () => void;
   showLayersPanel?: boolean;
+  onToggleProjects?: () => void;
 }
 
 // Shape tools cycle order for mobile
@@ -144,6 +146,7 @@ export const DrawingToolbar = ({
   onToggleSettings,
   onToggleLayers,
   showLayersPanel,
+  onToggleProjects,
 }: DrawingToolbarProps) => {
   const isPenOrPencil = activeTool === 'pen' || activeTool === 'pencil';
   const [currentShapeTool, setCurrentShapeTool] = useState<DrawingTool>('line');
@@ -170,10 +173,12 @@ export const DrawingToolbar = ({
       onGCode();
     } else if (id === '3d') {
       on3D();
+    } else if (id === 'projects') {
+      onToggleProjects?.();
     } else {
       onToolChange(id as DrawingTool);
     }
-  }, [onToolChange, onToggleSettings, onTrace, onClear, handleShapeToolClick, onGCode, on3D]);
+  }, [onToolChange, onToggleSettings, onTrace, onClear, handleShapeToolClick, onGCode, on3D, onToggleProjects]);
 
   const ToolButton = ({ tool, isActive }: { 
     tool: typeof selectionTools[0]; 
@@ -319,31 +324,40 @@ export const DrawingToolbar = ({
 
         {/* Bottom row - Actions & Export */}
         <div className="flex items-center justify-around px-2 py-2">
+          {/* Projects */}
+          <button
+            onClick={() => handleMobileToolClick('projects')}
+            className="flex flex-col items-center gap-1 px-1.5 py-1.5 rounded-lg transition-colors min-w-[40px] text-muted-foreground hover:text-foreground"
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span className="text-[8px] font-medium">Projects</span>
+          </button>
+
           {/* Adjust/Settings */}
           <button
             onClick={() => handleMobileToolClick('settings')}
-            className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground"
+            className="flex flex-col items-center gap-1 px-1.5 py-1.5 rounded-lg transition-colors min-w-[40px] text-muted-foreground hover:text-foreground"
           >
-            <SlidersHorizontal className="w-5 h-5" />
-            <span className="text-[9px] font-medium">Adjust</span>
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="text-[8px] font-medium">Adjust</span>
           </button>
 
           {/* Simulate/G-Code */}
           <button
             onClick={() => handleMobileToolClick('gcode')}
-            className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground"
+            className="flex flex-col items-center gap-1 px-1.5 py-1.5 rounded-lg transition-colors min-w-[40px] text-muted-foreground hover:text-foreground"
           >
-            <Play className="w-5 h-5" />
-            <span className="text-[9px] font-medium">Simulate</span>
+            <Play className="w-4 h-4" />
+            <span className="text-[8px] font-medium">Sim</span>
           </button>
 
           {/* 3D */}
           <button
             onClick={() => handleMobileToolClick('3d')}
-            className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground"
+            className="flex flex-col items-center gap-1 px-1.5 py-1.5 rounded-lg transition-colors min-w-[40px] text-muted-foreground hover:text-foreground"
           >
-            <Box className="w-5 h-5" />
-            <span className="text-[9px] font-medium">3D</span>
+            <Box className="w-4 h-4" />
+            <span className="text-[8px] font-medium">3D</span>
           </button>
 
           {/* Erase/Clear */}
@@ -351,22 +365,22 @@ export const DrawingToolbar = ({
             onClick={() => handleMobileToolClick('eraser')}
             disabled={!canClear}
             className={cn(
-              "flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg transition-colors min-w-[48px] text-muted-foreground hover:text-foreground",
+              "flex flex-col items-center gap-1 px-1.5 py-1.5 rounded-lg transition-colors min-w-[40px] text-muted-foreground hover:text-foreground",
               !canClear && "opacity-50"
             )}
           >
-            <Eraser className="w-5 h-5" />
-            <span className="text-[9px] font-medium">Clear</span>
+            <Eraser className="w-4 h-4" />
+            <span className="text-[8px] font-medium">Clear</span>
           </button>
 
           {/* Export */}
-          <div className="flex flex-col items-center gap-1 min-w-[48px]">
+          <div className="flex flex-col items-center gap-1 min-w-[40px]">
             <ExportMenu 
               canvas={canvas} 
               svgContent={svgContent} 
               disabled={!hasImage && !hasSvg}
             />
-            <span className="text-[9px] font-medium text-muted-foreground">Export</span>
+            <span className="text-[8px] font-medium text-muted-foreground">Export</span>
           </div>
         </div>
       </div>
