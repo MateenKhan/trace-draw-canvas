@@ -3,6 +3,7 @@ import { useCanvas } from "@/hooks/useCanvas";
 import { useDrawingTools } from "@/hooks/useDrawingTools";
 import { useImageEditing } from "@/hooks/useImageEditing";
 import { useMobileDrawing } from "@/hooks/useMobileDrawing";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { DrawingToolbar } from "@/components/DrawingToolbar";
 import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
@@ -114,6 +115,9 @@ const CanvasEditor = () => {
 
   // Image editing hook
   const { applyFilters } = useImageEditing({ canvas });
+
+  // Undo/Redo hook
+  const { undo, redo, canUndo, canRedo, clearHistory } = useUndoRedo({ canvas });
 
   // Mobile drawing hook for interactive shape creation
   const { isInteractiveMode } = useMobileDrawing({
@@ -255,10 +259,11 @@ const CanvasEditor = () => {
 
   const handleClear = useCallback(() => {
     clearCanvas();
+    clearHistory();
     setSvgContent(null);
     setImageFilter(DEFAULT_IMAGE_FILTER);
     toast.success("Canvas cleared");
-  }, [clearCanvas]);
+  }, [clearCanvas, clearHistory]);
 
   const handleDeleteLayer = useCallback((layerId: string) => {
     if (layers.length <= 1) {
@@ -437,6 +442,10 @@ const CanvasEditor = () => {
               onDelete={deleteSelected}
               onBringForward={bringForward}
               onSendBackward={sendBackward}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
             />
           </div>
 
