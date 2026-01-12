@@ -261,6 +261,23 @@ export const useMobileDrawing = ({
       obj.evented = false;
     });
 
+    const state = drawStateRef.current;
+
+    // Get canvas coordinates helper
+    const getCoords = (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const canvasEl = canvas.getElement();
+      const rect = canvasEl.getBoundingClientRect();
+      const zoom = canvas.getZoom();
+      const vpt = canvas.viewportTransform;
+      
+      if (!vpt) return null;
+      
+      const x = (clientX - rect.left - vpt[4]) / zoom;
+      const y = (clientY - rect.top - vpt[5]) / zoom;
+      
+      return { x, y };
+    };
+
     // Mouse events
     const handleMouseDown = (e: any) => {
       if (!e.pointer) return;
@@ -282,13 +299,14 @@ export const useMobileDrawing = ({
       });
     };
 
-    // Touch events (for mobile)
+    // Touch events (for mobile) - attach directly to canvas element
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
       e.preventDefault();
+      e.stopPropagation();
       
       const touch = e.touches[0];
-      const coords = getCanvasCoords(touch.clientX, touch.clientY);
+      const coords = getCoords(touch.clientX, touch.clientY);
       if (coords) {
         startDrawing(coords.x, coords.y);
       }
@@ -296,17 +314,21 @@ export const useMobileDrawing = ({
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
+      if (!state.isDrawing) return;
       e.preventDefault();
+      e.stopPropagation();
       
       const touch = e.touches[0];
-      const coords = getCanvasCoords(touch.clientX, touch.clientY);
+      const coords = getCoords(touch.clientX, touch.clientY);
       if (coords) {
         updateDrawing(coords.x, coords.y);
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
+      if (!state.isDrawing) return;
       e.preventDefault();
+      e.stopPropagation();
       finishDrawing();
       // Re-enable selection
       canvas.selection = true;
@@ -321,26 +343,21 @@ export const useMobileDrawing = ({
     canvas.on('mouse:move', handleMouseMove);
     canvas.on('mouse:up', handleMouseUp);
 
-    // Add touch events to canvas element
+    // Add touch events directly to canvas element (not wrapper)
     const canvasEl = canvas.getElement();
-    const wrapper = canvasEl.parentElement;
     
-    if (wrapper) {
-      wrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
-      wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
-      wrapper.addEventListener('touchend', handleTouchEnd, { passive: false });
-    }
+    canvasEl.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvasEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvasEl.addEventListener('touchend', handleTouchEnd, { passive: false });
 
     return () => {
       canvas.off('mouse:down', handleMouseDown);
       canvas.off('mouse:move', handleMouseMove);
       canvas.off('mouse:up', handleMouseUp);
 
-      if (wrapper) {
-        wrapper.removeEventListener('touchstart', handleTouchStart);
-        wrapper.removeEventListener('touchmove', handleTouchMove);
-        wrapper.removeEventListener('touchend', handleTouchEnd);
-      }
+      canvasEl.removeEventListener('touchstart', handleTouchStart);
+      canvasEl.removeEventListener('touchmove', handleTouchMove);
+      canvasEl.removeEventListener('touchend', handleTouchEnd);
 
       // Restore selection
       canvas.selection = true;
@@ -349,7 +366,7 @@ export const useMobileDrawing = ({
         obj.evented = true;
       });
     };
-  }, [canvas, activeTool, isInteractiveTool, startDrawing, updateDrawing, finishDrawing, getCanvasCoords]);
+  }, [canvas, activeTool, isInteractiveTool, startDrawing, updateDrawing, finishDrawing]);
 
   return {
     isInteractiveMode,
