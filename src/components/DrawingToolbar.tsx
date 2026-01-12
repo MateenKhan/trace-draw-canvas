@@ -25,6 +25,9 @@ import {
   Box,
   ChevronLeft,
   ChevronRight,
+  Settings2,
+  PanelRightClose,
+  PanelRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool } from "@/lib/types";
@@ -63,6 +66,9 @@ interface DrawingToolbarProps {
   brushSize: number;
   onBrushSizeChange: (size: number) => void;
   strokeColor: string;
+  onToggleSettings?: () => void;
+  onToggleLayers?: () => void;
+  showLayersPanel?: boolean;
 }
 
 // Tool groups for mobile swipe navigation
@@ -134,6 +140,9 @@ export const DrawingToolbar = ({
   brushSize,
   onBrushSizeChange,
   strokeColor,
+  onToggleSettings,
+  onToggleLayers,
+  showLayersPanel,
 }: DrawingToolbarProps) => {
   const isPenOrPencil = activeTool === 'pen' || activeTool === 'pencil';
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
@@ -260,6 +269,9 @@ export const DrawingToolbar = ({
               svgContent={svgContent} 
               disabled={!hasImage && !hasSvg}
             />
+            {onToggleSettings && (
+              <ActionButton icon={Settings2} label="Settings" onClick={onToggleSettings} compact />
+            )}
           </div>
         </div>
 
@@ -369,6 +381,13 @@ export const DrawingToolbar = ({
             svgContent={svgContent} 
             disabled={!hasImage && !hasSvg}
           />
+          {onToggleLayers && (
+            <ActionButton 
+              icon={showLayersPanel ? PanelRightClose : PanelRight} 
+              label="Toggle Layers" 
+              onClick={onToggleLayers} 
+            />
+          )}
         </div>
       </div>
     </div>

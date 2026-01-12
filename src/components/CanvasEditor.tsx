@@ -27,7 +27,7 @@ import {
   DEFAULT_IMAGE_FILTER,
 } from "@/lib/types";
 import { toast } from "sonner";
-import { Layers2, Settings2, X, Palette, PanelRightClose, PanelRight } from "lucide-react";
+import { X, Palette, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -364,27 +364,6 @@ const CanvasEditor = () => {
 
   return (
     <div ref={containerRef} className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-panel-border glass">
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-primary to-info flex items-center justify-center shadow-glow">
-            <Layers2 className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-base md:text-lg font-semibold tracking-tight">TraceFlow</h1>
-            <p className="text-[10px] md:text-xs text-muted-foreground font-mono hidden sm:block">Vector Editor</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="toolbar" size="icon" className="lg:hidden" onClick={() => setShowMobileSettings(!showMobileSettings)}>
-            <Settings2 className="w-4 h-4" />
-          </Button>
-          <Button variant="toolbar" size="icon" className="hidden lg:flex" onClick={() => setShowLayersPanel(!showLayersPanel)} title="Toggle Layers">
-            {showLayersPanel ? <PanelRightClose className="w-4 h-4" /> : <PanelRight className="w-4 h-4" />}
-          </Button>
-          <div className="text-[10px] md:text-xs font-mono text-muted-foreground">Zoom: {(zoom * 100).toFixed(0)}%</div>
-        </div>
-      </header>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col lg:flex-row relative">
@@ -476,6 +455,9 @@ const CanvasEditor = () => {
               brushSize={stroke.width}
               onBrushSizeChange={(size) => handleStrokeChange({ ...stroke, width: size })}
               strokeColor={stroke.color}
+              onToggleSettings={() => setShowMobileSettings(!showMobileSettings)}
+              onToggleLayers={() => setShowLayersPanel(!showLayersPanel)}
+              showLayersPanel={showLayersPanel}
             />
           </div>
         </main>
