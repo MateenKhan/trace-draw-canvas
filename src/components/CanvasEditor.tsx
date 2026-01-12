@@ -28,6 +28,7 @@ import {
 } from "@/lib/types";
 import { toast } from "sonner";
 import { X, Palette, Settings2 } from "lucide-react";
+import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -107,6 +108,8 @@ const CanvasEditor = () => {
     updateSelectedStroke,
     updateSelectedFill,
     updateSelectedTextStyle,
+    bringForward,
+    sendBackward,
   } = useDrawingTools({ canvas, stroke, fill, textStyle });
 
   // Image editing hook
@@ -427,10 +430,18 @@ const CanvasEditor = () => {
                 Drag to draw • Double-tap for default
               </div>
             )}
+
+            {/* Floating selection toolbar */}
+            <SelectionToolbar
+              canvas={canvas}
+              onDelete={deleteSelected}
+              onBringForward={bringForward}
+              onSendBackward={sendBackward}
+            />
           </div>
 
           {/* Spacer for fixed bottom toolbar */}
-          <div className="h-24 shrink-0" />
+          <div className="h-32 shrink-0" />
         </main>
         
         {/* Fixed Bottom Toolbar */}

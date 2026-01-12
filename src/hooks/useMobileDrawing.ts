@@ -171,9 +171,12 @@ export const useMobileDrawing = ({
       case 'line': {
         const line = currentShape as Line;
         line.set({
+          x1: startX,
+          y1: startY,
           x2: x,
           y2: y,
         });
+        line.setCoords();
         break;
       }
 

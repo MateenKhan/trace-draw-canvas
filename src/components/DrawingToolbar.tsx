@@ -161,10 +161,9 @@ export const DrawingToolbar = ({
     onSwipeRight: goToPrevGroup,
   });
 
-  const ToolButton = ({ tool, isActive, compact = false }: { 
+  const ToolButton = ({ tool, isActive }: { 
     tool: typeof selectionTools[0]; 
     isActive: boolean;
-    compact?: boolean;
   }) => (
     <TooltipProvider delayDuration={300}>
       <Tooltip>
@@ -172,10 +171,10 @@ export const DrawingToolbar = ({
           <Button
             variant={isActive ? "toolbar-active" : "toolbar"}
             size="icon"
-            className={cn(compact ? "w-11 h-11" : "w-12 h-12")}
+            className="w-12 h-12 sm:w-12 sm:h-12"
             onClick={() => onToolChange(tool.id)}
           >
-            <tool.icon className={cn(compact ? "w-5 h-5" : "w-6 h-6")} />
+            <tool.icon className="w-6 h-6" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -185,14 +184,13 @@ export const DrawingToolbar = ({
     </TooltipProvider>
   );
 
-  const ActionButton = ({ icon: Icon, label, onClick, disabled, active, className, compact = false }: {
+  const ActionButton = ({ icon: Icon, label, onClick, disabled, active, className }: {
     icon: typeof Upload;
     label: string;
     onClick: () => void;
     disabled?: boolean;
     active?: boolean;
     className?: string;
-    compact?: boolean;
   }) => (
     <TooltipProvider delayDuration={300}>
       <Tooltip>
@@ -200,11 +198,11 @@ export const DrawingToolbar = ({
           <Button
             variant={active ? "toolbar-active" : "toolbar"}
             size="icon"
-            className={cn(compact ? "w-11 h-11" : "w-12 h-12", className)}
+            className={cn("w-12 h-12", className)}
             onClick={onClick}
             disabled={disabled}
           >
-            <Icon className={cn(compact ? "w-5 h-5" : "w-6 h-6")} />
+            <Icon className="w-6 h-6" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -217,7 +215,7 @@ export const DrawingToolbar = ({
   const activeGroup = toolGroups[activeGroupIndex];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col gap-2 p-3 pb-safe bg-background/80 backdrop-blur-lg border-t border-panel-border">
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col gap-2 p-4 pb-safe bg-background/80 backdrop-blur-lg border-t border-panel-border">
       {/* Brush size slider - shown when pen/pencil is active */}
       <BrushSizeSlider
         size={brushSize}
@@ -228,49 +226,50 @@ export const DrawingToolbar = ({
 
       {/* Mobile toolbar with swipe navigation */}
       <div 
-        className="flex sm:hidden items-center justify-between gap-1 p-2 glass rounded-2xl border border-panel-border"
+        className="flex sm:hidden items-center justify-between gap-1.5 p-2.5 glass rounded-2xl border border-panel-border"
         {...handlers}
       >
         {/* Prev button */}
         <Button
           variant="toolbar"
           size="icon"
-          className="w-8 h-8 shrink-0"
+          className="w-10 h-10 shrink-0"
           onClick={goToPrevGroup}
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-5 h-5" />
         </Button>
 
         {/* Tool group with swipe area */}
-        <div className="flex-1 flex items-center justify-center gap-1 min-w-0">
+        <div className="flex-1 flex items-center justify-center gap-1.5 min-w-0 overflow-x-auto scrollbar-none">
           {/* Tools in current group */}
           <div className="flex items-center gap-1">
             {activeGroup.tools.map((tool) => (
-              <ToolButton key={tool.id} tool={tool} isActive={activeTool === tool.id} compact />
+              <ToolButton key={tool.id} tool={tool} isActive={activeTool === tool.id} />
             ))}
           </div>
 
           {/* Separator */}
-          <div className="w-px h-5 bg-panel-border mx-1" />
+          <div className="w-px h-6 bg-panel-border mx-1" />
 
           {/* Quick actions */}
           <div className="flex items-center gap-1">
-            <ActionButton icon={Upload} label="Upload" onClick={onUpload} compact />
+            <ActionButton icon={Upload} label="Upload" onClick={onUpload} />
             <ActionButton 
               icon={Sparkles} 
               label="Trace" 
               onClick={onTrace} 
               disabled={!hasImage || isTracing}
               active={isTracing}
-              compact
             />
+            <ActionButton icon={Cog} label="G-Code" onClick={onGCode} />
+            <ActionButton icon={Box} label="3D" onClick={on3D} />
             <ExportMenu 
               canvas={canvas} 
               svgContent={svgContent} 
               disabled={!hasImage && !hasSvg}
             />
             {onToggleSettings && (
-              <ActionButton icon={Settings2} label="Settings" onClick={onToggleSettings} compact />
+              <ActionButton icon={Settings2} label="Settings" onClick={onToggleSettings} />
             )}
           </div>
         </div>
@@ -279,10 +278,10 @@ export const DrawingToolbar = ({
         <Button
           variant="toolbar"
           size="icon"
-          className="w-8 h-8 shrink-0"
+          className="w-10 h-10 shrink-0"
           onClick={goToNextGroup}
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-5 h-5" />
         </Button>
       </div>
 
