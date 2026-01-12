@@ -4,6 +4,7 @@ import { useDrawingTools } from "@/hooks/useDrawingTools";
 import { useImageEditing } from "@/hooks/useImageEditing";
 import { useMobileDrawing } from "@/hooks/useMobileDrawing";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import { DrawingToolbar } from "@/components/DrawingToolbar";
 import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
@@ -12,6 +13,8 @@ import { ImageUploadDialog } from "@/components/ImageUploadDialog";
 import { GCodeDialog } from "@/components/GCodeDialog";
 import { Inline3DExtrude } from "@/components/Inline3DExtrude";
 import { LayersPanel } from "@/components/LayersPanel";
+import { HistoryPanel } from "@/components/HistoryPanel";
+import { RecoveryDialog } from "@/components/RecoveryDialog";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
 import { Layer, LayerGroup, createDefaultLayers } from "@/lib/layers";
@@ -71,6 +74,8 @@ const CanvasEditor = () => {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showGCodePanel, setShowGCodePanel] = useState(false);
   const [show3DPanel, setShow3DPanel] = useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [canDeleteSelected, setCanDeleteSelected] = useState(false);
   const [canClearCanvas, setCanClearCanvas] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -117,7 +122,40 @@ const CanvasEditor = () => {
   const { applyFilters } = useImageEditing({ canvas });
 
   // Undo/Redo hook
-  const { undo, redo, canUndo, canRedo, clearHistory } = useUndoRedo({ canvas });
+  const { undo, redo, canUndo, canRedo, clearHistory, history, currentIndex, restoreToIndex } = useUndoRedo({ canvas });
+
+  // Auto-save hook
+  const { 
+    hasSavedState, 
+    savedTimestamp, 
+    recoverFromStorage, 
+    clearSavedState,
+    getSavedStateInfo,
+    lastSaved,
+  } = useAutoSave({ canvas });
+
+  // Show recovery dialog if there's saved state
+  useEffect(() => {
+    if (hasSavedState && canvas) {
+      setShowRecoveryDialog(true);
+    }
+  }, [hasSavedState, canvas]);
+
+  const handleRecover = useCallback(async () => {
+    const success = await recoverFromStorage();
+    if (success) {
+      toast.success("Canvas recovered successfully!");
+    } else {
+      toast.error("Failed to recover canvas");
+    }
+    setShowRecoveryDialog(false);
+  }, [recoverFromStorage]);
+
+  const handleDiscardRecovery = useCallback(() => {
+    clearSavedState();
+    setShowRecoveryDialog(false);
+    toast.info("Starting fresh");
+  }, [clearSavedState]);
 
   // Mobile drawing hook for interactive shape creation
   const { isInteractiveMode } = useMobileDrawing({
@@ -429,6 +467,43 @@ const CanvasEditor = () => {
               canvas={canvas}
             />
 
+            {/* History Panel */}
+            <HistoryPanel
+              isVisible={showHistoryPanel}
+              onClose={() => setShowHistoryPanel(false)}
+              history={history}
+              currentIndex={currentIndex}
+              onRestoreToIndex={restoreToIndex}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+            />
+
+            {/* History toggle button */}
+            {!showHistoryPanel && (
+              <Button
+                variant="toolbar"
+                size="icon"
+                className="absolute top-4 right-4 z-40 w-10 h-10 glass border border-panel-border"
+                onClick={() => setShowHistoryPanel(true)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                  <path d="M12 7v5l4 2" />
+                </svg>
+              </Button>
+            )}
+
+            {/* Auto-save indicator */}
+            {lastSaved && (
+              <div className="absolute bottom-4 right-4 z-40 flex items-center gap-1.5 px-2 py-1 rounded-lg glass border border-panel-border text-[10px] text-muted-foreground">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Auto-saved
+              </div>
+            )}
+
             {/* Interactive drawing mode indicator */}
             {isInteractiveMode && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-primary/90 text-primary-foreground px-3 py-1.5 rounded-full text-xs font-medium animate-pulse">
@@ -545,6 +620,15 @@ const CanvasEditor = () => {
         onOpenChange={setShowGCodePanel} 
         canvas={canvas}
         onSimulationChange={handleSimulationChange}
+      />
+
+      {/* Recovery Dialog */}
+      <RecoveryDialog
+        isVisible={showRecoveryDialog}
+        timestamp={savedTimestamp}
+        thumbnail={getSavedStateInfo()?.thumbnail}
+        onRecover={handleRecover}
+        onDiscard={handleDiscardRecovery}
       />
     </div>
   );

@@ -1,84 +1,133 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas as FabricCanvas } from "fabric";
 
+export interface HistoryEntry {
+  id: string;
+  json: string;
+  thumbnail: string;
+  timestamp: number;
+  label: string;
+}
+
 interface UseUndoRedoOptions {
   canvas: FabricCanvas | null;
   maxHistory?: number;
 }
 
-export const useUndoRedo = ({ canvas, maxHistory = 50 }: UseUndoRedoOptions) => {
+export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
   
-  const historyRef = useRef<string[]>([]);
-  const currentIndexRef = useRef(-1);
   const isRestoringRef = useRef(false);
+  const actionCounterRef = useRef(0);
+
+  // Generate thumbnail from canvas
+  const generateThumbnail = useCallback((fabricCanvas: FabricCanvas): string => {
+    try {
+      const dataUrl = fabricCanvas.toDataURL({
+        format: 'png',
+        quality: 0.3,
+        multiplier: 0.15,
+      });
+      return dataUrl;
+    } catch {
+      return '';
+    }
+  }, []);
+
+  // Get action label based on recent changes
+  const getActionLabel = useCallback((index: number): string => {
+    const labels = [
+      'Initial State',
+      'Added Shape',
+      'Modified Object',
+      'Moved Object',
+      'Deleted Object',
+      'Changed Style',
+      'Drew Path',
+      'Added Text',
+      'Transformed',
+      'Canvas Update',
+    ];
+    if (index === 0) return labels[0];
+    return labels[Math.min(index % 9 + 1, labels.length - 1)];
+  }, []);
 
   // Save current state to history
   const saveState = useCallback(() => {
     if (!canvas || isRestoringRef.current) return;
 
     const json = JSON.stringify(canvas.toJSON());
+    const thumbnail = generateThumbnail(canvas);
+    const newIndex = actionCounterRef.current;
+    actionCounterRef.current++;
     
-    // Remove any states after current index (for redo functionality)
-    historyRef.current = historyRef.current.slice(0, currentIndexRef.current + 1);
+    const entry: HistoryEntry = {
+      id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      json,
+      thumbnail,
+      timestamp: Date.now(),
+      label: getActionLabel(newIndex),
+    };
     
-    // Add new state
-    historyRef.current.push(json);
+    setHistory(prev => {
+      const newHistory = prev.slice(0, currentIndex + 1);
+      newHistory.push(entry);
+      
+      if (newHistory.length > maxHistory) {
+        return newHistory.slice(1);
+      }
+      return newHistory;
+    });
     
-    // Limit history size
-    if (historyRef.current.length > maxHistory) {
-      historyRef.current.shift();
-    } else {
-      currentIndexRef.current++;
-    }
+    setCurrentIndex(prev => {
+      const newIdx = Math.min(prev + 1, maxHistory - 1);
+      setCanUndo(newIdx > 0);
+      setCanRedo(false);
+      return newIdx;
+    });
+  }, [canvas, currentIndex, maxHistory, generateThumbnail, getActionLabel]);
+
+  // Restore to specific history entry
+  const restoreToIndex = useCallback((index: number) => {
+    if (!canvas || index < 0 || index >= history.length) return;
     
-    setCanUndo(currentIndexRef.current > 0);
-    setCanRedo(false);
-  }, [canvas, maxHistory]);
+    isRestoringRef.current = true;
+    
+    const state = history[index];
+    canvas.loadFromJSON(JSON.parse(state.json)).then(() => {
+      canvas.renderAll();
+      isRestoringRef.current = false;
+      setCurrentIndex(index);
+      setCanUndo(index > 0);
+      setCanRedo(index < history.length - 1);
+    });
+  }, [canvas, history]);
 
   // Undo action
   const undo = useCallback(() => {
-    if (!canvas || currentIndexRef.current <= 0) return;
-    
-    isRestoringRef.current = true;
-    currentIndexRef.current--;
-    
-    const state = historyRef.current[currentIndexRef.current];
-    canvas.loadFromJSON(JSON.parse(state)).then(() => {
-      canvas.renderAll();
-      isRestoringRef.current = false;
-      setCanUndo(currentIndexRef.current > 0);
-      setCanRedo(currentIndexRef.current < historyRef.current.length - 1);
-    });
-  }, [canvas]);
+    if (currentIndex <= 0) return;
+    restoreToIndex(currentIndex - 1);
+  }, [currentIndex, restoreToIndex]);
 
   // Redo action
   const redo = useCallback(() => {
-    if (!canvas || currentIndexRef.current >= historyRef.current.length - 1) return;
-    
-    isRestoringRef.current = true;
-    currentIndexRef.current++;
-    
-    const state = historyRef.current[currentIndexRef.current];
-    canvas.loadFromJSON(JSON.parse(state)).then(() => {
-      canvas.renderAll();
-      isRestoringRef.current = false;
-      setCanUndo(currentIndexRef.current > 0);
-      setCanRedo(currentIndexRef.current < historyRef.current.length - 1);
-    });
-  }, [canvas]);
+    if (currentIndex >= history.length - 1) return;
+    restoreToIndex(currentIndex + 1);
+  }, [currentIndex, history.length, restoreToIndex]);
 
   // Clear history
   const clearHistory = useCallback(() => {
-    historyRef.current = [];
-    currentIndexRef.current = -1;
+    setHistory([]);
+    setCurrentIndex(-1);
     setCanUndo(false);
     setCanRedo(false);
+    actionCounterRef.current = 0;
     
-    // Save initial state
     if (canvas) {
-      saveState();
+      setTimeout(() => saveState(), 100);
     }
   }, [canvas, saveState]);
 
@@ -86,8 +135,7 @@ export const useUndoRedo = ({ canvas, maxHistory = 50 }: UseUndoRedoOptions) => 
   useEffect(() => {
     if (!canvas) return;
 
-    // Save initial state
-    saveState();
+    const timeout = setTimeout(() => saveState(), 100);
 
     const handleChange = () => {
       saveState();
@@ -98,6 +146,7 @@ export const useUndoRedo = ({ canvas, maxHistory = 50 }: UseUndoRedoOptions) => 
     canvas.on('object:modified', handleChange);
 
     return () => {
+      clearTimeout(timeout);
       canvas.off('object:added', handleChange);
       canvas.off('object:removed', handleChange);
       canvas.off('object:modified', handleChange);
@@ -135,5 +184,8 @@ export const useUndoRedo = ({ canvas, maxHistory = 50 }: UseUndoRedoOptions) => 
     canRedo,
     clearHistory,
     saveState,
+    history,
+    currentIndex,
+    restoreToIndex,
   };
 };
