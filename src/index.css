@@ -91,10 +91,10 @@
 @layer components {
   .panel {
     @apply rounded-xl border;
-    background: hsl(var(--glass-bg));
-    border-color: hsl(var(--glass-border));
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background: hsl(220 16% 12% / 0.85);
+    border-color: hsl(220 14% 30% / 0.5);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     box-shadow: var(--shadow-lg), inset 0 1px 0 hsl(220 14% 30% / 0.2);
   }
   
@@ -104,10 +104,10 @@
   }
   
   .glass {
-    background: hsl(var(--glass-bg));
-    border: 1px solid hsl(var(--glass-border));
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background: hsl(220 16% 12% / 0.85);
+    border: 1px solid hsl(220 14% 30% / 0.5);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
   
   .toolbar-button {
@@ -206,5 +206,10 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--muted));
     border-radius: 3px;
+  }
+  
+  /* Safe area padding for iOS */
+  .pb-safe {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
 }

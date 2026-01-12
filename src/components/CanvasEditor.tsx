@@ -451,7 +451,7 @@ const CanvasEditor = () => {
           </div>
 
           {/* Bottom toolbar - fixed at bottom of canvas area */}
-          <div className="p-2 md:p-3 flex justify-center">
+          <div className="p-2 md:p-3 flex justify-center relative z-50 pb-safe">
             <DrawingToolbar
               activeTool={activeTool}
               onToolChange={handleToolChange}
