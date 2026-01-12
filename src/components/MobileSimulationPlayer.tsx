@@ -171,57 +171,26 @@ export const MobileSimulationPlayer = ({
       ref={containerRef}
       className="fixed inset-0 z-[300] bg-black flex flex-col"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/10"
-            onClick={onClose}
-          >
-            <X className="w-5 h-5" />
-          </Button>
-          <div className="text-white">
-            <h3 className="font-semibold text-sm">G-Code Simulation</h3>
-            <p className="text-xs text-white/60">
-              {toolPaths.length} toolpath{toolPaths.length !== 1 ? 's' : ''} • {estimatedTime.toFixed(1)} min
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/10"
-            onClick={toggleFullscreen}
-          >
-            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/10"
-            onClick={handleExport}
-            disabled={toolPaths.length === 0}
-          >
-            <Download className="w-5 h-5" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Visualization Area */}
+      {/* Visualization Area - FULLSCREEN */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-gray-950">
         {toolPaths.length > 0 ? (
-          <ToolpathOverlay
-            toolPaths={toolPaths}
-            progress={progress}
-            currentPoint={currentPoint}
-            isPlaying={isPlaying}
-            width={window.innerWidth}
-            height={window.innerHeight * 0.55}
-            show={true}
-          />
+          <>
+            <ToolpathOverlay
+              toolPaths={toolPaths}
+              progress={progress}
+              currentPoint={currentPoint}
+              isPlaying={isPlaying}
+              width={window.innerWidth}
+              height={window.innerHeight - 100}
+              show={true}
+            />
+            
+            {/* Origin marker */}
+            <div className="absolute top-4 left-4 flex items-center gap-1 bg-black/60 px-2 py-1 rounded backdrop-blur-sm">
+              <div className="w-2 h-2 rounded-full bg-white" />
+              <span className="text-[10px] text-white/70">Origin (0,0)</span>
+            </div>
+          </>
         ) : (
           <div className="text-white/60 text-center p-8">
             <p className="text-lg mb-2">No toolpaths available</p>
@@ -229,96 +198,103 @@ export const MobileSimulationPlayer = ({
           </div>
         )}
 
-        {/* Current position - moved to avoid overlap with overlay controls */}
+        {/* Current position - compact */}
         {currentPoint && (
-          <div className="absolute top-14 left-2 px-3 py-2 bg-black/60 rounded-lg backdrop-blur-sm z-10">
-            <div className="text-xs text-white/60 mb-1">Position</div>
-            <div className="text-sm font-mono text-white">
-              X: {currentPoint.x.toFixed(2)} Y: {currentPoint.y.toFixed(2)}
+          <div className="absolute top-4 right-4 px-2 py-1 bg-black/60 rounded backdrop-blur-sm">
+            <div className="text-[10px] font-mono text-white">
+              X:{currentPoint.x.toFixed(1)} Y:{currentPoint.y.toFixed(1)}
             </div>
           </div>
         )}
-
-        {/* Current G-code line */}
-        <div className="absolute top-14 right-2 px-3 py-2 bg-black/60 rounded-lg backdrop-blur-sm max-w-[200px] z-10">
-          <div className="text-xs text-white/60 mb-1">
-            Line {currentLine + 1} / {gcodeLines.length}
-          </div>
-          <code className="text-xs font-mono text-green-400 block truncate">
-            {gcodeLines[currentLine] || 'Ready'}
-          </code>
-        </div>
       </div>
 
-      {/* Video Player Controls */}
-      <div className="bg-black/80 backdrop-blur-sm border-t border-white/10 px-4 py-4 pb-safe">
-        {/* Progress Bar */}
-        <div className="mb-4">
+      {/* Bottom Dock - Compact Controls */}
+      <div className="bg-black/90 backdrop-blur-md border-t border-white/10 px-3 py-2 pb-safe">
+        {/* Progress Bar - Compact */}
+        <div className="mb-2">
           <Slider
             value={[progress]}
             onValueChange={handleSeek}
             min={0}
             max={100}
             step={0.1}
-            className="w-full [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_.range]:bg-green-500"
+            className="w-full h-1 [&_[role=slider]]:w-3 [&_[role=slider]]:h-3 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_.range]:bg-green-500"
           />
-          <div className="flex items-center justify-between mt-2 text-xs text-white/60">
-            <span>{((progress / 100) * estimatedTime).toFixed(1)} min</span>
-            <span>{estimatedTime.toFixed(1)} min</span>
-          </div>
         </div>
 
-        {/* Playback Controls */}
-        <div className="flex items-center justify-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/10 w-12 h-12"
-            onClick={reset}
-          >
-            <RotateCcw className="w-5 h-5" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/10 w-12 h-12"
-            onClick={skipBack}
-          >
-            <SkipBack className="w-5 h-5" />
-          </Button>
-          <Button
-            size="icon"
-            className={cn(
-              "w-16 h-16 rounded-full",
-              isPlaying 
-                ? "bg-green-500 hover:bg-green-600" 
-                : "bg-white hover:bg-white/90"
-            )}
-            onClick={isPlaying ? pause : play}
-          >
-            {isPlaying ? (
-              <Pause className={cn("w-7 h-7", isPlaying ? "text-white" : "text-black")} />
-            ) : (
-              <Play className="w-7 h-7 text-black ml-1" />
-            )}
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/10 w-12 h-12"
-            onClick={skipForward}
-          >
-            <SkipForward className="w-5 h-5" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/10 w-12 h-12"
-            onClick={handleExport}
-            disabled={toolPaths.length === 0}
-          >
-            <Download className="w-5 h-5" />
-          </Button>
+        {/* Playback Controls - Dock Style */}
+        <div className="flex items-center justify-between">
+          {/* Left - Info */}
+          <div className="flex items-center gap-2 min-w-[60px]">
+            <span className="text-[10px] text-white/60 font-mono">
+              {((progress / 100) * estimatedTime).toFixed(1)}m
+            </span>
+          </div>
+
+          {/* Center - Playback */}
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-white hover:bg-white/10 w-8 h-8"
+              onClick={reset}
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-white hover:bg-white/10 w-8 h-8"
+              onClick={skipBack}
+            >
+              <SkipBack className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              className={cn(
+                "w-12 h-12 rounded-full",
+                isPlaying 
+                  ? "bg-green-500 hover:bg-green-600" 
+                  : "bg-white hover:bg-white/90"
+              )}
+              onClick={isPlaying ? pause : play}
+            >
+              {isPlaying ? (
+                <Pause className="w-5 h-5 text-white" />
+              ) : (
+                <Play className="w-5 h-5 text-black ml-0.5" />
+              )}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-white hover:bg-white/10 w-8 h-8"
+              onClick={skipForward}
+            >
+              <SkipForward className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-white hover:bg-white/10 w-8 h-8"
+              onClick={handleExport}
+              disabled={toolPaths.length === 0}
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Right - Close */}
+          <div className="flex items-center gap-1 min-w-[60px] justify-end">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-white hover:bg-white/10 w-8 h-8"
+              onClick={onClose}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

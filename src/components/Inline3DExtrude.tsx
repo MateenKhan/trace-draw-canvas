@@ -481,295 +481,209 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
   const hasCanvasShapes = canvasShapes.length > 0;
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col bg-background/95 backdrop-blur-sm animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-panel-border">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onClose} 
-            className="h-9 w-9 mr-1 bg-destructive/10 hover:bg-destructive/20 text-destructive"
-          >
-            <X className="w-5 h-5" />
-          </Button>
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="font-semibold text-sm">3D Extrusion</span>
-          {hasCanvasShapes && (
-            <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-              {canvasShapes.length} shape{canvasShapes.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground hidden sm:flex items-center gap-1">
-            <Move3D className="w-3 h-3" />
-            Drag to rotate
-          </span>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* 3D Preview with drag handlers */}
-        <div 
-          ref={canvasContainerRef}
-          className={cn(
-            "flex-1 min-h-[250px] lg:min-h-0 cursor-grab touch-none",
-            isDragging && "cursor-grabbing"
-          )}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
+    <div className="fixed inset-0 z-[300] flex flex-col bg-background">
+      {/* 3D Preview - FULLSCREEN */}
+      <div 
+        ref={canvasContainerRef}
+        className={cn(
+          "flex-1 cursor-grab touch-none relative",
+          isDragging && "cursor-grabbing"
+        )}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+      >
+        <Canvas
+          shadows
+          camera={{ position: [5, 5, 5], fov: 50 }}
+          style={{ width: "100%", height: "100%", pointerEvents: "none" }}
         >
-          <Canvas
-            shadows
-            camera={{ position: [5, 5, 5], fov: 50 }}
-            style={{ width: "100%", height: "100%", pointerEvents: "none" }}
-          >
-            <color attach="background" args={["#1a1a2e"]} />
-            
-            {/* Lighting */}
-            <ambientLight intensity={0.4} />
-            <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
-            <pointLight position={[-10, -10, -5]} intensity={0.5} color="#00d4ff" />
-            
-            {/* 3D Grid */}
-            <Grid3D />
-            
-            {/* Canvas shapes or sample shapes */}
-            {hasCanvasShapes && !showSamples ? (
-              displayedShapes.map((shapeData, index) => (
-                <ExtrudedCanvasShape
-                  key={shapeData.id}
-                  shapeData={shapeData}
-                  extrusion={extrusion}
-                  material={material}
-                  isSelected={selectedShapeId === shapeData.id}
-                  index={index}
-                  totalShapes={displayedShapes.length}
-                />
-              ))
-            ) : (
-              <SampleShape
-                shapeType={sampleShape}
+          <color attach="background" args={["#1a1a2e"]} />
+          
+          {/* Lighting */}
+          <ambientLight intensity={0.4} />
+          <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
+          <pointLight position={[-10, -10, -5]} intensity={0.5} color="#00d4ff" />
+          
+          {/* 3D Grid */}
+          <Grid3D />
+          
+          {/* Canvas shapes or sample shapes */}
+          {hasCanvasShapes && !showSamples ? (
+            displayedShapes.map((shapeData, index) => (
+              <ExtrudedCanvasShape
+                key={shapeData.id}
+                shapeData={shapeData}
                 extrusion={extrusion}
                 material={material}
+                isSelected={selectedShapeId === shapeData.id}
+                index={index}
+                totalShapes={displayedShapes.length}
               />
-            )}
-            
-            {/* Camera Controller */}
-            <CameraController 
-              autoRotate={autoRotate} 
-              isDragging={isDragging}
-              dragDelta={dragDelta}
-              onDragEnd={handleDragEnd}
+            ))
+          ) : (
+            <SampleShape
+              shapeType={sampleShape}
+              extrusion={extrusion}
+              material={material}
             />
-          </Canvas>
+          )}
+          
+          {/* Camera Controller */}
+          <CameraController 
+            autoRotate={autoRotate} 
+            isDragging={isDragging}
+            dragDelta={dragDelta}
+            onDragEnd={handleDragEnd}
+          />
+        </Canvas>
+
+        {/* Origin indicator */}
+        <div className="absolute top-4 left-4 flex items-center gap-1 bg-black/60 px-2 py-1 rounded backdrop-blur-sm">
+          <div className="flex items-center gap-0.5">
+            <div className="w-2 h-0.5 bg-red-500" />
+            <span className="text-[8px] text-red-400">X</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <div className="w-0.5 h-2 bg-green-500" />
+            <span className="text-[8px] text-green-400">Y</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <div className="w-2 h-0.5 bg-blue-500" />
+            <span className="text-[8px] text-blue-400">Z</span>
+          </div>
         </div>
 
-        {/* Controls Panel */}
-        <ScrollArea className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-panel-border">
-          <div className="p-4 space-y-5">
-            {/* Canvas shapes list */}
-            {hasCanvasShapes && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5" />
-                    Canvas Shapes
-                  </Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-[10px]"
-                    onClick={() => setShowSamples(!showSamples)}
-                  >
-                    {showSamples ? "Show Canvas" : "Show Samples"}
-                  </Button>
-                </div>
-                
-                {!showSamples && (
-                  <div className="space-y-1">
-                    <Button
-                      variant={selectedShapeId === null ? "default" : "outline"}
-                      size="sm"
-                      className="w-full justify-start text-xs h-8"
-                      onClick={() => setSelectedShapeId(null)}
-                    >
-                      All Shapes ({canvasShapes.length})
-                    </Button>
-                    {canvasShapes.map((shape) => (
-                      <Button
-                        key={shape.id}
-                        variant={selectedShapeId === shape.id ? "default" : "ghost"}
-                        size="sm"
-                        className="w-full justify-start text-xs h-8 gap-2"
-                        onClick={() => setSelectedShapeId(shape.id)}
-                      >
-                        <div 
-                          className="w-3 h-3 rounded-sm" 
-                          style={{ backgroundColor: shape.color === 'transparent' ? '#666' : shape.color }}
-                        />
-                        {shape.name}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </div>
+        {/* Drag hint */}
+        <div className="absolute top-4 right-4 flex items-center gap-1 bg-black/60 px-2 py-1 rounded backdrop-blur-sm">
+          <Move3D className="w-3 h-3 text-white/60" />
+          <span className="text-[10px] text-white/60">Drag to rotate</span>
+        </div>
+
+        {/* Shape count */}
+        {hasCanvasShapes && (
+          <div className="absolute bottom-20 left-4 bg-black/60 px-2 py-1 rounded backdrop-blur-sm">
+            <span className="text-[10px] text-white/60">
+              {canvasShapes.length} shape{canvasShapes.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Dock - Compact Controls */}
+      <div className="bg-background/95 backdrop-blur-md border-t border-panel-border px-3 py-2 pb-safe">
+        {/* Depth slider - inline */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] text-muted-foreground w-10">Depth</span>
+          <Slider
+            value={[extrusion.depth]}
+            onValueChange={(v) => setExtrusion({ ...extrusion, depth: v[0] })}
+            min={0.1}
+            max={3}
+            step={0.1}
+            className="flex-1 touch-none"
+          />
+          <span className="text-[10px] text-muted-foreground w-6">{extrusion.depth.toFixed(1)}</span>
+        </div>
+
+        {/* Controls Row */}
+        <div className="flex items-center justify-between">
+          {/* Left - Shape options */}
+          <div className="flex items-center gap-1">
+            {(showSamples || !hasCanvasShapes) && shapeOptions.map((shape) => (
+              <Button
+                key={shape.id}
+                variant={sampleShape === shape.id ? "default" : "ghost"}
+                size="icon"
+                className="w-8 h-8"
+                onClick={() => setSampleShape(shape.id)}
+              >
+                <shape.icon className="w-4 h-4" />
+              </Button>
+            ))}
+            {hasCanvasShapes && !showSamples && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-[10px]"
+                onClick={() => setShowSamples(true)}
+              >
+                Samples
+              </Button>
             )}
-
-            {/* Sample shapes when no canvas shapes or showing samples */}
-            {(showSamples || !hasCanvasShapes) && (
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Sample Shapes</Label>
-                {!hasCanvasShapes && (
-                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-xs text-muted-foreground">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>Draw shapes on canvas to extrude them</span>
-                  </div>
-                )}
-                <div className="grid grid-cols-4 gap-2">
-                  {shapeOptions.map((shape) => (
-                    <Button
-                      key={shape.id}
-                      variant={sampleShape === shape.id ? "default" : "outline"}
-                      size="sm"
-                      className={cn(
-                        "flex flex-col items-center gap-1 h-12 p-1",
-                        sampleShape === shape.id && "ring-2 ring-primary"
-                      )}
-                      onClick={() => setSampleShape(shape.id)}
-                    >
-                      <shape.icon className="w-4 h-4" />
-                      <span className="text-[9px]">{shape.label}</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
+            {showSamples && hasCanvasShapes && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-[10px]"
+                onClick={() => setShowSamples(false)}
+              >
+                Canvas
+              </Button>
             )}
+          </div>
 
-            {/* Depth slider */}
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label className="text-xs">Extrusion Depth</Label>
-                <span className="text-xs text-muted-foreground">{extrusion.depth.toFixed(1)}</span>
-              </div>
-              <Slider
-                value={[extrusion.depth]}
-                onValueChange={(v) => setExtrusion({ ...extrusion, depth: v[0] })}
-                min={0.1}
-                max={3}
-                step={0.1}
-                className="touch-none"
-              />
-            </div>
+          {/* Center - Toggle options */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setExtrusion({ ...extrusion, bevelEnabled: !extrusion.bevelEnabled })}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-colors",
+                extrusion.bevelEnabled ? "bg-primary/20 text-primary" : "text-muted-foreground"
+              )}
+            >
+              Bevel
+            </button>
+            <button
+              onClick={() => setMaterial({ ...material, wireframe: !material.wireframe })}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-colors",
+                material.wireframe ? "bg-primary/20 text-primary" : "text-muted-foreground"
+              )}
+            >
+              Wire
+            </button>
+            <button
+              onClick={() => setAutoRotate(!autoRotate)}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-colors",
+                autoRotate ? "bg-primary/20 text-primary" : "text-muted-foreground"
+              )}
+            >
+              <RotateCcw className="w-3 h-3" />
+            </button>
+          </div>
 
-            {/* Bevel toggle */}
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Bevel Edges</Label>
-              <Switch
-                checked={extrusion.bevelEnabled}
-                onCheckedChange={(v) => setExtrusion({ ...extrusion, bevelEnabled: v })}
-              />
-            </div>
-
-            {extrusion.bevelEnabled && (
-              <div className="space-y-3 pl-2 border-l-2 border-primary/30">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label className="text-xs">Bevel Size</Label>
-                    <span className="text-xs text-muted-foreground">{extrusion.bevelSize.toFixed(2)}</span>
-                  </div>
-                  <Slider
-                    value={[extrusion.bevelSize]}
-                    onValueChange={(v) => setExtrusion({ ...extrusion, bevelSize: v[0] })}
-                    min={0}
-                    max={0.3}
-                    step={0.01}
-                    className="touch-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Material color */}
-            <div className="space-y-2">
-              <Label className="text-xs">Override Color</Label>
-              <Input
-                type="color"
-                value={material.color}
-                onChange={(e) => setMaterial({ ...material, color: e.target.value })}
-                className="h-10 w-full cursor-pointer"
-              />
-            </div>
-
-            {/* Material properties */}
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label className="text-xs">Metalness</Label>
-                  <span className="text-xs text-muted-foreground">{material.metalness.toFixed(2)}</span>
-                </div>
-                <Slider
-                  value={[material.metalness]}
-                  onValueChange={(v) => setMaterial({ ...material, metalness: v[0] })}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  className="touch-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label className="text-xs">Roughness</Label>
-                  <span className="text-xs text-muted-foreground">{material.roughness.toFixed(2)}</span>
-                </div>
-                <Slider
-                  value={[material.roughness]}
-                  onValueChange={(v) => setMaterial({ ...material, roughness: v[0] })}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  className="touch-none"
-                />
-              </div>
-            </div>
-
-            {/* Wireframe + Auto rotate */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Wireframe</Label>
-                <Switch
-                  checked={material.wireframe}
-                  onCheckedChange={(v) => setMaterial({ ...material, wireframe: v })}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Auto Rotate</Label>
-                <Switch
-                  checked={autoRotate}
-                  onCheckedChange={setAutoRotate}
-                />
-              </div>
-            </div>
-
-            {/* Reset button */}
-            <Button
-              variant="outline"
-              className="w-full gap-2"
+          {/* Right - Close */}
+          <div className="flex items-center gap-1">
+            <Input
+              type="color"
+              value={material.color}
+              onChange={(e) => setMaterial({ ...material, color: e.target.value })}
+              className="w-8 h-8 p-0 border-0 cursor-pointer"
+            />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="w-8 h-8"
               onClick={() => {
                 setExtrusion(DEFAULT_EXTRUSION);
                 setMaterial(DEFAULT_MATERIAL);
               }}
             >
               <RotateCcw className="w-4 h-4" />
-              Reset Settings
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="w-8 h-8 text-destructive"
+              onClick={onClose}
+            >
+              <X className="w-4 h-4" />
             </Button>
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </div>
   );

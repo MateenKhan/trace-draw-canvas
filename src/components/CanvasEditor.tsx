@@ -832,6 +832,7 @@ const CanvasEditor = () => {
           onToggleSettings={() => setShowMobileSettings(!showMobileSettings)}
           onToggleLayers={() => setShowLayersPanel(!showLayersPanel)}
           showLayersPanel={showLayersPanel}
+          onToggleProjects={() => setShowProjectsPanel(!showProjectsPanel)}
         />
 
         {/* Right Sidebar - Layers Panel */}
