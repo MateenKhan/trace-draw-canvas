@@ -7,7 +7,8 @@ import {
   Palette, 
   ArrowUp, 
   ArrowDown,
-  RotateCcw,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import {
   Popover,
@@ -23,6 +24,10 @@ interface SelectionToolbarProps {
   onDuplicate?: () => void;
   onBringForward?: () => void;
   onSendBackward?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 const QUICK_COLORS = [
@@ -38,6 +43,10 @@ export const SelectionToolbar = ({
   onDuplicate,
   onBringForward,
   onSendBackward,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
 }: SelectionToolbarProps) => {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
@@ -193,6 +202,28 @@ export const SelectionToolbar = ({
       </Button>
       <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={onSendBackward}>
         <ArrowDown className="w-4 h-4" />
+      </Button>
+
+      <div className="w-px h-5 bg-panel-border" />
+
+      {/* Undo/Redo */}
+      <Button 
+        variant="toolbar" 
+        size="icon" 
+        className="w-9 h-9" 
+        onClick={onUndo}
+        disabled={!canUndo}
+      >
+        <Undo2 className="w-4 h-4" />
+      </Button>
+      <Button 
+        variant="toolbar" 
+        size="icon" 
+        className="w-9 h-9" 
+        onClick={onRedo}
+        disabled={!canRedo}
+      >
+        <Redo2 className="w-4 h-4" />
       </Button>
 
       <div className="w-px h-5 bg-panel-border" />
