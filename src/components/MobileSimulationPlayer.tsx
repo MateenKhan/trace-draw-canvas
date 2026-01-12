@@ -211,15 +211,15 @@ export const MobileSimulationPlayer = ({
       </div>
 
       {/* Visualization Area */}
-      <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-gray-950">
         {toolPaths.length > 0 ? (
           <ToolpathOverlay
             toolPaths={toolPaths}
             progress={progress}
             currentPoint={currentPoint}
             isPlaying={isPlaying}
-            width={Math.min(window.innerWidth * 0.95, 600)}
-            height={Math.min(window.innerHeight * 0.5, 400)}
+            width={window.innerWidth}
+            height={window.innerHeight * 0.55}
             show={true}
           />
         ) : (
@@ -229,17 +229,9 @@ export const MobileSimulationPlayer = ({
           </div>
         )}
 
-        {/* Status overlay */}
-        {isPlaying && (
-          <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 bg-green-500/90 rounded-full text-white text-xs font-medium">
-            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            CUTTING
-          </div>
-        )}
-
-        {/* Current position */}
+        {/* Current position - moved to avoid overlap with overlay controls */}
         {currentPoint && (
-          <div className="absolute bottom-4 left-4 px-3 py-2 bg-black/60 rounded-lg backdrop-blur-sm">
+          <div className="absolute top-14 left-2 px-3 py-2 bg-black/60 rounded-lg backdrop-blur-sm z-10">
             <div className="text-xs text-white/60 mb-1">Position</div>
             <div className="text-sm font-mono text-white">
               X: {currentPoint.x.toFixed(2)} Y: {currentPoint.y.toFixed(2)}
@@ -248,7 +240,7 @@ export const MobileSimulationPlayer = ({
         )}
 
         {/* Current G-code line */}
-        <div className="absolute bottom-4 right-4 px-3 py-2 bg-black/60 rounded-lg backdrop-blur-sm max-w-[200px]">
+        <div className="absolute top-14 right-2 px-3 py-2 bg-black/60 rounded-lg backdrop-blur-sm max-w-[200px] z-10">
           <div className="text-xs text-white/60 mb-1">
             Line {currentLine + 1} / {gcodeLines.length}
           </div>
