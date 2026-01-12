@@ -5,6 +5,7 @@ import { useImageEditing } from "@/hooks/useImageEditing";
 import { useMobileDrawing } from "@/hooks/useMobileDrawing";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { DrawingToolbar } from "@/components/DrawingToolbar";
 import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
@@ -16,6 +17,7 @@ import { LayersPanel } from "@/components/LayersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { RecoveryDialog } from "@/components/RecoveryDialog";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
+import { MobileSimulationPlayer } from "@/components/MobileSimulationPlayer";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
 import { Layer, LayerGroup, createDefaultLayers } from "@/lib/layers";
 import { ToolPath, pathToPoints, PathPoint } from "@/lib/gcode";
@@ -46,6 +48,7 @@ interface SimulationState {
 }
 
 const CanvasEditor = () => {
+  const isMobile = useIsMobile();
   // Tool state
   const [activeTool, setActiveTool] = useState<DrawingTool>("select");
   
@@ -74,6 +77,7 @@ const CanvasEditor = () => {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showGCodePanel, setShowGCodePanel] = useState(false);
   const [show3DPanel, setShow3DPanel] = useState(false);
+  const [showMobileSimulation, setShowMobileSimulation] = useState(false);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [canDeleteSelected, setCanDeleteSelected] = useState(false);
@@ -542,7 +546,13 @@ const CanvasEditor = () => {
           canDeleteSelected={canDeleteSelected}
           canClear={canClearCanvas}
           onFullscreen={handleFullscreen}
-          onGCode={() => setShowGCodePanel(true)}
+          onGCode={() => {
+            if (isMobile) {
+              setShowMobileSimulation(true);
+            } else {
+              setShowGCodePanel(true);
+            }
+          }}
           on3D={() => setShow3DPanel(true)}
           hasImage={hasImage}
           hasSvg={!!svgContent}
@@ -619,6 +629,14 @@ const CanvasEditor = () => {
         open={showGCodePanel} 
         onOpenChange={setShowGCodePanel} 
         canvas={canvas}
+        onSimulationChange={handleSimulationChange}
+      />
+
+      {/* Mobile Simulation Player */}
+      <MobileSimulationPlayer
+        isVisible={showMobileSimulation}
+        onClose={() => setShowMobileSimulation(false)}
+        toolPaths={toolPaths}
         onSimulationChange={handleSimulationChange}
       />
 
