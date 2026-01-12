@@ -450,8 +450,8 @@ const CanvasEditor = () => {
             )}
           </div>
 
-          {/* Bottom toolbar - fixed at bottom of canvas area */}
-          <div className="p-2 md:p-3 flex justify-center relative z-50 pb-safe">
+          {/* Bottom toolbar - always visible (sticky) */}
+          <div className="sticky bottom-0 left-0 right-0 p-2 md:p-3 flex justify-center relative z-50 pb-safe shrink-0 pointer-events-auto">
             <DrawingToolbar
               activeTool={activeTool}
               onToolChange={handleToolChange}
