@@ -305,19 +305,22 @@ export const useMobileDrawing = ({
     // Touch events (for mobile) - attach directly to canvas element
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
-      e.preventDefault();
-      e.stopPropagation();
       
       const touch = e.touches[0];
       const coords = getCoords(touch.clientX, touch.clientY);
       if (coords) {
+        e.preventDefault();
+        e.stopPropagation();
         startDrawing(coords.x, coords.y);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
-      if (!state.isDrawing) return;
+      
+      // Check the ref state, not the stale closure value
+      if (!drawStateRef.current.isDrawing) return;
+      
       e.preventDefault();
       e.stopPropagation();
       
@@ -329,7 +332,9 @@ export const useMobileDrawing = ({
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (!state.isDrawing) return;
+      // Check the ref state, not the stale closure value
+      if (!drawStateRef.current.isDrawing) return;
+      
       e.preventDefault();
       e.stopPropagation();
       finishDrawing();

@@ -401,7 +401,7 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
   const [sampleShape, setSampleShape] = useState<"rectangle" | "circle" | "triangle" | "star">("rectangle");
   const [extrusion, setExtrusion] = useState<ExtrusionSettings>(DEFAULT_EXTRUSION);
   const [material, setMaterial] = useState<MaterialSettings>(DEFAULT_MATERIAL);
-  const [autoRotate, setAutoRotate] = useState(true);
+  const [autoRotate, setAutoRotate] = useState(false);
   const [showSamples, setShowSamples] = useState(false);
   
   // Drag-to-rotate state
@@ -485,6 +485,14 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-panel-border">
         <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose} 
+            className="h-9 w-9 mr-1 bg-destructive/10 hover:bg-destructive/20 text-destructive"
+          >
+            <X className="w-5 h-5" />
+          </Button>
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="font-semibold text-sm">3D Extrusion</span>
           {hasCanvasShapes && (
@@ -494,13 +502,10 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground hidden sm:flex items-center gap-1">
             <Move3D className="w-3 h-3" />
             Drag to rotate
           </span>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-            <X className="w-4 h-4" />
-          </Button>
         </div>
       </div>
 

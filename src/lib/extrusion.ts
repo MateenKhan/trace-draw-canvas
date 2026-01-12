@@ -39,5 +39,5 @@ export const DEFAULT_MATERIAL: MaterialSettings = {
 export const DEFAULT_SCENE: Scene3DSettings = {
   backgroundColor: "#1a1a2e",
   showGrid: true,
-  autoRotate: true,
+  autoRotate: false,
 };

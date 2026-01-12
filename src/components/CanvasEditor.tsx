@@ -335,9 +335,9 @@ const CanvasEditor = () => {
     setSimulationState(state);
   }, []);
 
-  // Extract toolpaths when G-code panel opens
+  // Extract toolpaths when G-code panel or mobile simulation opens
   useEffect(() => {
-    if (showGCodePanel && canvas) {
+    if ((showGCodePanel || showMobileSimulation) && canvas) {
       const objects = canvas.getObjects();
       const paths: ToolPath[] = [];
 
@@ -363,7 +363,7 @@ const CanvasEditor = () => {
 
       setToolPaths(paths);
     }
-  }, [showGCodePanel, canvas]);
+  }, [showGCodePanel, showMobileSimulation, canvas]);
 
   // Track selection + canvas content so mobile can enable/disable buttons correctly
   useEffect(() => {
