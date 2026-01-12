@@ -18,9 +18,25 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { RecoveryDialog } from "@/components/RecoveryDialog";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
 import { MobileSimulationPlayer } from "@/components/MobileSimulationPlayer";
+import { ProjectsPanel } from "@/components/ProjectsPanel";
+import { ProjectHistoryPanel } from "@/components/ProjectHistoryPanel";
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
 import { Layer, LayerGroup, createDefaultLayers } from "@/lib/layers";
 import { ToolPath, pathToPoints, PathPoint } from "@/lib/gcode";
+import { 
+  Project, 
+  getProjects, 
+  createProject, 
+  updateProject, 
+  deleteProject, 
+  duplicateProject, 
+  getActiveProjectId, 
+  setActiveProjectId,
+  addProjectSnapshot,
+  restoreToSnapshot,
+  getProject,
+} from "@/lib/projects";
+import { FolderOpen } from "lucide-react";
 import { 
   DrawingTool, 
   StrokeStyle, 
@@ -83,6 +99,13 @@ const CanvasEditor = () => {
   const [canDeleteSelected, setCanDeleteSelected] = useState(false);
   const [canClearCanvas, setCanClearCanvas] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Project state
+  const [projects, setProjects] = useState<Project[]>(() => getProjects());
+  const [activeProjectId, setActiveProjectIdState] = useState<string | null>(() => getActiveProjectId());
+  const [showProjectsPanel, setShowProjectsPanel] = useState(false);
+  const [showProjectHistoryPanel, setShowProjectHistoryPanel] = useState(false);
+  const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
 
   // G-code simulation state
   const [simulationState, setSimulationState] = useState<SimulationState>({
@@ -335,6 +358,109 @@ const CanvasEditor = () => {
     setSimulationState(state);
   }, []);
 
+  // Generate canvas thumbnail
+  const generateThumbnail = useCallback((): string => {
+    if (!canvas) return '';
+    try {
+      return canvas.toDataURL({ format: 'png', quality: 0.3, multiplier: 0.25 });
+    } catch {
+      return '';
+    }
+  }, [canvas]);
+
+  // Project CRUD handlers
+  const handleCreateProject = useCallback((name: string) => {
+    const canvasJson = canvas ? JSON.stringify(canvas.toJSON()) : '';
+    const thumbnail = generateThumbnail();
+    const project = createProject(name, canvasJson, thumbnail);
+    setProjects(getProjects());
+    setActiveProjectIdState(project.id);
+    setActiveProjectId(project.id);
+    toast.success(`Project "${name}" created`);
+  }, [canvas, generateThumbnail]);
+
+  const handleOpenProject = useCallback((id: string) => {
+    const project = getProject(id);
+    if (!project || !canvas) return;
+    
+    canvas.loadFromJSON(project.canvasJson ? JSON.parse(project.canvasJson) : {}, () => {
+      canvas.renderAll();
+      setActiveProjectIdState(id);
+      setActiveProjectId(id);
+      setShowProjectsPanel(false);
+      toast.success(`Opened "${project.name}"`);
+    });
+  }, [canvas]);
+
+  const handleRenameProject = useCallback((id: string, name: string) => {
+    updateProject(id, { name });
+    setProjects(getProjects());
+    toast.success("Project renamed");
+  }, []);
+
+  const handleDuplicateProject = useCallback((id: string) => {
+    const dup = duplicateProject(id);
+    if (dup) {
+      setProjects(getProjects());
+      toast.success(`Project duplicated`);
+    }
+  }, []);
+
+  const handleDeleteProject = useCallback((id: string) => {
+    deleteProject(id);
+    setProjects(getProjects());
+    if (activeProjectId === id) {
+      setActiveProjectIdState(null);
+      setActiveProjectId(null);
+    }
+    toast.success("Project deleted");
+  }, [activeProjectId]);
+
+  const handleViewProjectHistory = useCallback((id: string) => {
+    setViewingProjectId(id);
+    setShowProjectHistoryPanel(true);
+    setShowProjectsPanel(false);
+  }, []);
+
+  const handleRestoreProjectSnapshot = useCallback((index: number) => {
+    if (!viewingProjectId || !canvas) return;
+    
+    const project = restoreToSnapshot(viewingProjectId, index);
+    if (project) {
+      canvas.loadFromJSON(JSON.parse(project.canvasJson), () => {
+        canvas.renderAll();
+        setProjects(getProjects());
+        toast.success("Snapshot restored");
+      });
+    }
+  }, [viewingProjectId, canvas]);
+
+  // Auto-save to active project
+  useEffect(() => {
+    if (!activeProjectId || !canvas) return;
+
+    const saveToProject = () => {
+      const canvasJson = JSON.stringify(canvas.toJSON());
+      const thumbnail = generateThumbnail();
+      const label = `Auto-save at ${new Date().toLocaleTimeString()}`;
+      addProjectSnapshot(activeProjectId, canvasJson, thumbnail, label);
+      setProjects(getProjects());
+    };
+
+    // Save on significant changes
+    const handleChange = () => {
+      // Debounce saves
+      const timeout = setTimeout(saveToProject, 5000);
+      return () => clearTimeout(timeout);
+    };
+
+    canvas.on('object:modified', handleChange);
+    
+    return () => {
+      canvas.off('object:modified', handleChange);
+    };
+  }, [activeProjectId, canvas, generateThumbnail]);
+
   // Extract toolpaths when G-code panel or mobile simulation opens
   useEffect(() => {
     if ((showGCodePanel || showMobileSimulation) && canvas) {
@@ -342,22 +468,93 @@ const CanvasEditor = () => {
       const paths: ToolPath[] = [];
 
       objects.forEach((obj, index) => {
-        const pathData = obj.toSVG?.();
-        if (!pathData) return;
-
-        const pathMatch = pathData.match(/d="([^"]+)"/);
-        if (pathMatch) {
-          const points = pathToPoints(pathMatch[1], 1);
+        // Get object type and generate path data accordingly
+        const objType = obj.type;
+        let pathPoints: PathPoint[] = [];
+        
+        if (objType === 'rect') {
+          // Handle rectangles - create path from corners
+          const rect = obj as any;
+          const left = rect.left || 0;
+          const top = rect.top || 0;
+          const width = (rect.width || 0) * (rect.scaleX || 1);
+          const height = (rect.height || 0) * (rect.scaleY || 1);
+          
+          pathPoints = [
+            { x: left, y: top, type: 'rapid' },
+            { x: left + width, y: top, type: 'linear' },
+            { x: left + width, y: top + height, type: 'linear' },
+            { x: left, y: top + height, type: 'linear' },
+            { x: left, y: top, type: 'linear' }, // Close path
+          ];
+        } else if (objType === 'circle' || objType === 'ellipse') {
+          // Handle circles/ellipses - approximate with segments
+          const ellipse = obj as any;
+          const cx = ellipse.left || 0;
+          const cy = ellipse.top || 0;
+          const rx = ((ellipse.rx || ellipse.radius || 0) * (ellipse.scaleX || 1));
+          const ry = ((ellipse.ry || ellipse.radius || 0) * (ellipse.scaleY || 1));
+          const segments = 36;
+          
+          for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const x = cx + rx + Math.cos(angle) * rx;
+            const y = cy + ry + Math.sin(angle) * ry;
+            pathPoints.push({ x, y, type: i === 0 ? 'rapid' : 'linear' });
+          }
+        } else if (objType === 'line') {
+          // Handle lines
+          const line = obj as any;
+          const x1 = (line.x1 || 0) + (line.left || 0);
+          const y1 = (line.y1 || 0) + (line.top || 0);
+          const x2 = (line.x2 || 0) + (line.left || 0);
+          const y2 = (line.y2 || 0) + (line.top || 0);
+          
+          pathPoints = [
+            { x: x1, y: y1, type: 'rapid' },
+            { x: x2, y: y2, type: 'linear' },
+          ];
+        } else if (objType === 'polygon') {
+          // Handle polygons
+          const polygon = obj as any;
+          const points = polygon.points || [];
+          const left = polygon.left || 0;
+          const top = polygon.top || 0;
+          
+          points.forEach((pt: any, i: number) => {
+            pathPoints.push({
+              x: pt.x + left,
+              y: pt.y + top,
+              type: i === 0 ? 'rapid' : 'linear',
+            });
+          });
           if (points.length > 0) {
-            paths.push({
-              id: `path-${index}`,
-              name: `Object ${index + 1}`,
-              type: 'profile',
-              points,
-              depth: 3,
-              color: '#00ff00',
+            pathPoints.push({
+              x: points[0].x + left,
+              y: points[0].y + top,
+              type: 'linear',
             });
           }
+        } else {
+          // Fallback to SVG path extraction
+          const pathData = obj.toSVG?.();
+          if (pathData) {
+            const pathMatch = pathData.match(/d="([^"]+)"/);
+            if (pathMatch) {
+              pathPoints = pathToPoints(pathMatch[1], 1);
+            }
+          }
+        }
+        
+        if (pathPoints.length > 0) {
+          paths.push({
+            id: `path-${index}`,
+            name: `${objType || 'Object'} ${index + 1}`,
+            type: 'profile',
+            points: pathPoints,
+            depth: 3,
+            color: '#00ff00',
+          });
         }
       });
 
@@ -484,20 +681,30 @@ const CanvasEditor = () => {
               canRedo={canRedo}
             />
 
-            {/* History toggle button */}
+            {/* Top buttons - History and Projects */}
             {!showHistoryPanel && (
-              <Button
-                variant="toolbar"
-                size="icon"
-                className="absolute top-4 right-4 z-40 w-10 h-10 glass border border-panel-border"
-                onClick={() => setShowHistoryPanel(true)}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                  <path d="M12 7v5l4 2" />
-                </svg>
-              </Button>
+              <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
+                <Button
+                  variant="toolbar"
+                  size="icon"
+                  className="w-10 h-10 glass border border-panel-border"
+                  onClick={() => setShowProjectsPanel(true)}
+                >
+                  <FolderOpen className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="toolbar"
+                  size="icon"
+                  className="w-10 h-10 glass border border-panel-border"
+                  onClick={() => setShowHistoryPanel(true)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                    <path d="M12 7v5l4 2" />
+                  </svg>
+                </Button>
+              </div>
             )}
 
             {/* Auto-save indicator */}
@@ -647,6 +854,28 @@ const CanvasEditor = () => {
         thumbnail={getSavedStateInfo()?.thumbnail}
         onRecover={handleRecover}
         onDiscard={handleDiscardRecovery}
+      />
+
+      {/* Projects Panel */}
+      <ProjectsPanel
+        isVisible={showProjectsPanel}
+        onClose={() => setShowProjectsPanel(false)}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onCreateProject={handleCreateProject}
+        onOpenProject={handleOpenProject}
+        onRenameProject={handleRenameProject}
+        onDuplicateProject={handleDuplicateProject}
+        onDeleteProject={handleDeleteProject}
+        onViewHistory={handleViewProjectHistory}
+      />
+
+      {/* Project History Panel */}
+      <ProjectHistoryPanel
+        isVisible={showProjectHistoryPanel}
+        onClose={() => setShowProjectHistoryPanel(false)}
+        project={viewingProjectId ? getProject(viewingProjectId) : null}
+        onRestoreSnapshot={handleRestoreProjectSnapshot}
       />
     </div>
   );
