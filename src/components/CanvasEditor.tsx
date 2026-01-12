@@ -462,105 +462,164 @@ const CanvasEditor = () => {
   }, [activeProjectId, canvas, generateThumbnail]);
 
   // Extract toolpaths when G-code panel or mobile simulation opens
+  // This also needs to re-run on canvas changes when panel is open
+  const extractToolPaths = useCallback(() => {
+    if (!canvas) return;
+    
+    const objects = canvas.getObjects();
+    const paths: ToolPath[] = [];
+
+    console.log('Extracting toolpaths from', objects.length, 'objects');
+
+    objects.forEach((obj, index) => {
+      // Get object type and generate path data accordingly
+      const objType = obj.type;
+      let pathPoints: PathPoint[] = [];
+      
+      console.log('Processing object:', objType, obj);
+      
+      if (objType === 'rect') {
+        // Handle rectangles - create path from corners
+        const rect = obj as any;
+        const left = rect.left || 0;
+        const top = rect.top || 0;
+        const width = (rect.width || 0) * (rect.scaleX || 1);
+        const height = (rect.height || 0) * (rect.scaleY || 1);
+        
+        pathPoints = [
+          { x: left, y: top, type: 'rapid' },
+          { x: left + width, y: top, type: 'linear' },
+          { x: left + width, y: top + height, type: 'linear' },
+          { x: left, y: top + height, type: 'linear' },
+          { x: left, y: top, type: 'linear' }, // Close path
+        ];
+      } else if (objType === 'circle' || objType === 'ellipse') {
+        // Handle circles/ellipses - approximate with segments
+        const ellipse = obj as any;
+        const cx = ellipse.left || 0;
+        const cy = ellipse.top || 0;
+        const rx = ((ellipse.rx || ellipse.radius || 0) * (ellipse.scaleX || 1));
+        const ry = ((ellipse.ry || ellipse.radius || 0) * (ellipse.scaleY || 1));
+        const segments = 36;
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          const x = cx + rx + Math.cos(angle) * rx;
+          const y = cy + ry + Math.sin(angle) * ry;
+          pathPoints.push({ x, y, type: i === 0 ? 'rapid' : 'linear' });
+        }
+      } else if (objType === 'line') {
+        // Handle lines
+        const line = obj as any;
+        const x1 = (line.x1 || 0) + (line.left || 0);
+        const y1 = (line.y1 || 0) + (line.top || 0);
+        const x2 = (line.x2 || 0) + (line.left || 0);
+        const y2 = (line.y2 || 0) + (line.top || 0);
+        
+        pathPoints = [
+          { x: x1, y: y1, type: 'rapid' },
+          { x: x2, y: y2, type: 'linear' },
+        ];
+      } else if (objType === 'polygon') {
+        // Handle polygons
+        const polygon = obj as any;
+        const points = polygon.points || [];
+        const left = polygon.left || 0;
+        const top = polygon.top || 0;
+        
+        points.forEach((pt: any, i: number) => {
+          pathPoints.push({
+            x: pt.x + left,
+            y: pt.y + top,
+            type: i === 0 ? 'rapid' : 'linear',
+          });
+        });
+        if (points.length > 0) {
+          pathPoints.push({
+            x: points[0].x + left,
+            y: points[0].y + top,
+            type: 'linear',
+          });
+        }
+      } else if (objType === 'path') {
+        // Handle paths (drawn lines, pen tool, etc)
+        const path = obj as any;
+        const pathData = path.path;
+        if (pathData && Array.isArray(pathData)) {
+          const left = path.left || 0;
+          const top = path.top || 0;
+          pathData.forEach((cmd: any[], i: number) => {
+            if (cmd[0] === 'M' || cmd[0] === 'L') {
+              pathPoints.push({
+                x: cmd[1] + left,
+                y: cmd[2] + top,
+                type: i === 0 ? 'rapid' : 'linear',
+              });
+            } else if (cmd[0] === 'Q' && cmd.length >= 5) {
+              // Quadratic curve - just use endpoint
+              pathPoints.push({
+                x: cmd[3] + left,
+                y: cmd[4] + top,
+                type: 'linear',
+              });
+            } else if (cmd[0] === 'C' && cmd.length >= 7) {
+              // Cubic curve - just use endpoint
+              pathPoints.push({
+                x: cmd[5] + left,
+                y: cmd[6] + top,
+                type: 'linear',
+              });
+            }
+          });
+        }
+      } else {
+        // Fallback to SVG path extraction
+        const pathData = obj.toSVG?.();
+        if (pathData) {
+          const pathMatch = pathData.match(/d="([^"]+)"/);
+          if (pathMatch) {
+            pathPoints = pathToPoints(pathMatch[1], 1);
+          }
+        }
+      }
+      
+      console.log('Generated', pathPoints.length, 'points for', objType);
+      
+      if (pathPoints.length > 0) {
+        paths.push({
+          id: `path-${index}`,
+          name: `${objType || 'Object'} ${index + 1}`,
+          type: 'profile',
+          points: pathPoints,
+          depth: 3,
+          color: '#00ff00',
+        });
+      }
+    });
+
+    console.log('Total toolpaths:', paths.length);
+    setToolPaths(paths);
+  }, [canvas]);
+
+  // Call extraction when panel opens or canvas changes
   useEffect(() => {
     if ((showGCodePanel || showMobileSimulation) && canvas) {
-      const objects = canvas.getObjects();
-      const paths: ToolPath[] = [];
-
-      objects.forEach((obj, index) => {
-        // Get object type and generate path data accordingly
-        const objType = obj.type;
-        let pathPoints: PathPoint[] = [];
-        
-        if (objType === 'rect') {
-          // Handle rectangles - create path from corners
-          const rect = obj as any;
-          const left = rect.left || 0;
-          const top = rect.top || 0;
-          const width = (rect.width || 0) * (rect.scaleX || 1);
-          const height = (rect.height || 0) * (rect.scaleY || 1);
-          
-          pathPoints = [
-            { x: left, y: top, type: 'rapid' },
-            { x: left + width, y: top, type: 'linear' },
-            { x: left + width, y: top + height, type: 'linear' },
-            { x: left, y: top + height, type: 'linear' },
-            { x: left, y: top, type: 'linear' }, // Close path
-          ];
-        } else if (objType === 'circle' || objType === 'ellipse') {
-          // Handle circles/ellipses - approximate with segments
-          const ellipse = obj as any;
-          const cx = ellipse.left || 0;
-          const cy = ellipse.top || 0;
-          const rx = ((ellipse.rx || ellipse.radius || 0) * (ellipse.scaleX || 1));
-          const ry = ((ellipse.ry || ellipse.radius || 0) * (ellipse.scaleY || 1));
-          const segments = 36;
-          
-          for (let i = 0; i <= segments; i++) {
-            const angle = (i / segments) * Math.PI * 2;
-            const x = cx + rx + Math.cos(angle) * rx;
-            const y = cy + ry + Math.sin(angle) * ry;
-            pathPoints.push({ x, y, type: i === 0 ? 'rapid' : 'linear' });
-          }
-        } else if (objType === 'line') {
-          // Handle lines
-          const line = obj as any;
-          const x1 = (line.x1 || 0) + (line.left || 0);
-          const y1 = (line.y1 || 0) + (line.top || 0);
-          const x2 = (line.x2 || 0) + (line.left || 0);
-          const y2 = (line.y2 || 0) + (line.top || 0);
-          
-          pathPoints = [
-            { x: x1, y: y1, type: 'rapid' },
-            { x: x2, y: y2, type: 'linear' },
-          ];
-        } else if (objType === 'polygon') {
-          // Handle polygons
-          const polygon = obj as any;
-          const points = polygon.points || [];
-          const left = polygon.left || 0;
-          const top = polygon.top || 0;
-          
-          points.forEach((pt: any, i: number) => {
-            pathPoints.push({
-              x: pt.x + left,
-              y: pt.y + top,
-              type: i === 0 ? 'rapid' : 'linear',
-            });
-          });
-          if (points.length > 0) {
-            pathPoints.push({
-              x: points[0].x + left,
-              y: points[0].y + top,
-              type: 'linear',
-            });
-          }
-        } else {
-          // Fallback to SVG path extraction
-          const pathData = obj.toSVG?.();
-          if (pathData) {
-            const pathMatch = pathData.match(/d="([^"]+)"/);
-            if (pathMatch) {
-              pathPoints = pathToPoints(pathMatch[1], 1);
-            }
-          }
-        }
-        
-        if (pathPoints.length > 0) {
-          paths.push({
-            id: `path-${index}`,
-            name: `${objType || 'Object'} ${index + 1}`,
-            type: 'profile',
-            points: pathPoints,
-            depth: 3,
-            color: '#00ff00',
-          });
-        }
-      });
-
-      setToolPaths(paths);
+      // Extract immediately
+      extractToolPaths();
+      
+      // Also listen for changes while panel is open
+      const handleChange = () => extractToolPaths();
+      canvas.on('object:added', handleChange);
+      canvas.on('object:removed', handleChange);
+      canvas.on('object:modified', handleChange);
+      
+      return () => {
+        canvas.off('object:added', handleChange);
+        canvas.off('object:removed', handleChange);
+        canvas.off('object:modified', handleChange);
+      };
     }
-  }, [showGCodePanel, showMobileSimulation, canvas]);
+  }, [showGCodePanel, showMobileSimulation, canvas, extractToolPaths]);
 
   // Track selection + canvas content so mobile can enable/disable buttons correctly
   useEffect(() => {
