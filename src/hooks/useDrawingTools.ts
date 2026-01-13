@@ -1,10 +1,10 @@
 import { useCallback } from "react";
-import { 
-  Canvas as FabricCanvas, 
-  Rect, 
-  Circle, 
-  Line, 
-  Path, 
+import {
+  Canvas as FabricCanvas,
+  Rect,
+  Circle,
+  Line,
+  Path,
   Polygon,
   IText,
   FabricObject
@@ -39,6 +39,11 @@ export const useDrawingTools = ({
       opacity: fill.opacity,
       rx: 0,
       ry: 0,
+      selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      // @ts-ignore
+      id: `shape_${Math.random().toString(36).substr(2, 9)}`,
     });
 
     canvas.add(rect);
@@ -58,6 +63,11 @@ export const useDrawingTools = ({
       stroke: stroke.color,
       strokeWidth: stroke.width,
       opacity: fill.opacity,
+      selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      // @ts-ignore
+      id: `shape_${Math.random().toString(36).substr(2, 9)}`,
     });
 
     canvas.add(ellipse);
@@ -75,6 +85,11 @@ export const useDrawingTools = ({
     const line = new Line([centerX - 50, centerY, centerX + 50, centerY], {
       stroke: stroke.color,
       strokeWidth: stroke.width,
+      selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      // @ts-ignore
+      id: `shape_${Math.random().toString(36).substr(2, 9)}`,
     });
 
     canvas.add(line);
@@ -104,6 +119,11 @@ export const useDrawingTools = ({
       stroke: stroke.color,
       strokeWidth: stroke.width,
       opacity: fill.opacity,
+      selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      // @ts-ignore
+      id: `shape_${Math.random().toString(36).substr(2, 9)}`,
     });
 
     // Center the polygon
@@ -132,6 +152,11 @@ export const useDrawingTools = ({
       fill: textStyle.fill,
       charSpacing: textStyle.letterSpacing * 10,
       lineHeight: textStyle.lineHeight,
+      selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      // @ts-ignore
+      id: `shape_${Math.random().toString(36).substr(2, 9)}`,
     });
 
     canvas.add(itext);
@@ -237,6 +262,7 @@ export const useDrawingTools = ({
     if (activeObject) {
       canvas.bringObjectForward(activeObject);
       canvas.renderAll();
+      canvas.fire('object:modified', { target: activeObject });
     }
   }, [canvas]);
 
@@ -246,6 +272,7 @@ export const useDrawingTools = ({
     if (activeObject) {
       canvas.sendObjectBackwards(activeObject);
       canvas.renderAll();
+      canvas.fire('object:modified', { target: activeObject });
     }
   }, [canvas]);
 

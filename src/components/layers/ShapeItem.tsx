@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface ShapeItemProps {
+    id: string;
     object: FabricObject;
     depth?: number;
     isActive: boolean;
@@ -39,6 +40,7 @@ interface ShapeItemProps {
 }
 
 export const ShapeItem = memo(({
+    id,
     object,
     depth = 0,
     isActive,
@@ -55,7 +57,8 @@ export const ShapeItem = memo(({
     const [editingName, setEditingName] = useState("");
     const [name, setName] = useState((object as any).name || object.type);
 
-    const id = (object as any).id || `obj-${Math.random()}`;
+    // Use passed ID if available, otherwise fallback to object ID
+    const sortableId = id || (object as any).id;
     const {
         attributes,
         listeners,
@@ -63,7 +66,7 @@ export const ShapeItem = memo(({
         transform,
         transition,
         isDragging: isSorting
-    } = useSortable({ id, data: { type: 'shape', object, parentId: (object as any).layerId } });
+    } = useSortable({ id: sortableId, data: { type: 'shape', object, parentId: (object as any).layerId } });
 
     // Swipe State
     const [swipeX, setSwipeX] = useState(0);
@@ -206,7 +209,7 @@ export const ShapeItem = memo(({
                 onClick={onSelect}
             >
                 {/* Drag Handle */}
-                <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-0.5 touch-none">
+                <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 -ml-1 touch-none">
                     <GripVertical className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-foreground flex-shrink-0" />
                 </div>
 

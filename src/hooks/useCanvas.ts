@@ -46,14 +46,14 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     fabricCanvas.on("mouse:wheel", (opt) => {
       const delta = opt.e.deltaY;
       let newZoom = fabricCanvas.getZoom() * (1 - delta / 500);
-      
+
       // Clamp zoom
       newZoom = Math.max(0.1, Math.min(5, newZoom));
-      
+
       // Zoom to cursor position
       const pointer = fabricCanvas.getViewportPoint(opt.e);
       fabricCanvas.zoomToPoint(pointer, newZoom);
-      
+
       setZoom(newZoom);
       opt.e.preventDefault();
       opt.e.stopPropagation();
@@ -65,7 +65,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     let isPanning = false;
     let lastCenter = { x: 0, y: 0 };
 
-    const getDistance = (t1: Touch, t2: Touch) => 
+    const getDistance = (t1: Touch, t2: Touch) =>
       Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
 
     const getCenter = (t1: Touch, t2: Touch) => ({
@@ -100,7 +100,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       if (isPanning && lastCenter.x !== 0 && lastCenter.y !== 0) {
         const deltaX = center.x - lastCenter.x;
         const deltaY = center.y - lastCenter.y;
-        
+
         const vpt = fabricCanvas.viewportTransform;
         if (vpt) {
           vpt[4] += deltaX;
@@ -187,12 +187,14 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
                 selectable: true,
                 hasControls: true,
                 hasBorders: true,
+                // @ts-ignore
+                id: `shape_${Math.random().toString(36).substr(2, 9)}`,
               });
 
               canvas.add(fabricImage);
               canvas.setActiveObject(fabricImage);
               canvas.renderAll();
-              
+
               // Store reference to original image element
               imageElementRef.current = img;
               setHasImage(true);
@@ -215,7 +217,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
   const setZoomLevel = useCallback(
     (newZoom: number) => {
       if (!canvas) return;
-      
+
       const center = canvas.getCenterPoint();
       canvas.zoomToPoint(center, newZoom);
       setZoom(newZoom);
@@ -231,7 +233,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     }
 
     const img = imageElementRef.current;
-    
+
     // Create a temporary canvas to get image data
     const tempCanvas = document.createElement("canvas");
     const ctx = tempCanvas.getContext("2d");
@@ -242,9 +244,9 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
 
     tempCanvas.width = img.naturalWidth || img.width;
     tempCanvas.height = img.naturalHeight || img.height;
-    
+
     console.log("Getting image data:", tempCanvas.width, "x", tempCanvas.height);
-    
+
     ctx.drawImage(img, 0, 0);
 
     return ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
@@ -259,7 +261,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     canvas.clear();
     imageElementRef.current = null;
     setHasImage(false);
-    
+
     // Reset zoom
     canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     setZoom(1);

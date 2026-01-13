@@ -228,7 +228,7 @@ export const LayerTreeItem = ({
                     onPointerCancel={handlePointerUp}
                 >
                     {/* Explicit Drag Handle */}
-                    <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/50 hover:text-foreground touch-none">
+                    <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 -ml-1 text-muted-foreground/50 hover:text-foreground touch-none">
                         <GripVertical className="w-3.5 h-3.5" />
                     </div>
 

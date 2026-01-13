@@ -85,7 +85,7 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
       activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 8 },
+      activationConstraint: { delay: 150, tolerance: 12 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -128,7 +128,7 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
       // Ensure objects have layerId
       allObjects.forEach(obj => {
         if (!(obj as any).layerId) {
-          (obj as any).layerId = 'layer_base'; // Default to base
+          (obj as any).layerId = activeNodeId && tree.nodes[activeNodeId] ? activeNodeId : 'layer_base';
         }
       });
 
@@ -139,31 +139,36 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
       setVersion(v => v + 1);
     };
 
-    syncLayers();
-
-    canvas.on('object:added', (e) => {
+    const handleObjectAdded = (e: any) => {
       if (e.target && !(e.target as any).layerId) {
         const targetId = activeNodeId && tree.nodes[activeNodeId] ? activeNodeId : 'layer_base';
         (e.target as any).layerId = targetId;
       }
       syncLayers();
-    });
+    };
+
+    syncLayers();
+
+    canvas.on('object:added', handleObjectAdded);
     canvas.on('object:removed', syncLayers);
     canvas.on('object:modified', syncLayers);
+    canvas.on('object:moving', syncLayers); // Live reflect
     canvas.on('selection:created', syncLayers);
     canvas.on('selection:updated', syncLayers);
     canvas.on('selection:cleared', syncLayers);
 
     return () => {
-      canvas.off('object:added');
-      canvas.off('object:removed');
-      canvas.off('object:modified');
-      canvas.off('selection:created');
-      canvas.off('selection:updated');
-      canvas.off('selection:cleared');
+      canvas.off('object:added', handleObjectAdded);
+      canvas.off('object:removed', syncLayers);
+      canvas.off('object:modified', syncLayers);
+      canvas.off('object:moving', syncLayers);
+      canvas.off('selection:created', syncLayers);
+      canvas.off('selection:updated', syncLayers);
+      canvas.off('selection:cleared', syncLayers);
     };
   }, [canvas, activeNodeId, tree]);
 
+  // --- COMMUTED LOGIC (Moved up for use in handlers) ---
   // Map objects to nodes
   const objectsMap = useMemo(() => {
     const map: Record<string, FabricObject[]> = {};
@@ -173,7 +178,12 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
       map[lid].push(obj);
     });
     return map;
-  }, [objects]);
+  }, [objects, version]);
+
+  // Compute flat list for sorting
+  const flattenedItems = useMemo(() => {
+    return flattenTree(tree, objectsMap, tree.rootIds);
+  }, [tree, objectsMap, version]);
 
 
   // Tree Operations
@@ -309,17 +319,42 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
     const activeItem = flattenedItems.find(i => i.id === activeId);
     if (!activeItem) return;
 
+    const overItem = flattenedItems.find(i => i.id === overId);
+    if (!overItem) return;
+
     // --- SHAPE DRAGGING ---
     if (activeItem.type === 'shape') {
-      const overItem = flattenedItems.find(i => i.id === overId);
-      if (!overItem) return;
-
       let targetLayerId = overItem.type === 'node' ? overItem.id : overItem.parentId;
+
+      // 1. Handle Layer Change
       if (targetLayerId && (activeItem.object as any).layerId !== targetLayerId) {
         (activeItem.object as any).layerId = targetLayerId;
-        setVersion(v => v + 1);
-        toast.success("Shape moved");
       }
+
+      // 2. Handle Z-Order Change
+      const activeObj = activeItem.object;
+      const overObj = overItem.type === 'shape' ? overItem.object : null;
+
+      if (activeObj && overObj && activeObj !== overObj) {
+        const overIdx = canvas?.getObjects().indexOf(overObj);
+        if (overIdx !== undefined && overIdx !== -1) {
+          canvas?.moveObjectTo(activeObj, overIdx);
+        }
+      } else if (activeObj && overItem.type === 'node') {
+        const layerShapes = canvas?.getObjects().filter(o => (o as any).layerId === targetLayerId);
+        if (layerShapes && layerShapes.length > 0) {
+          const topMostInLayer = layerShapes[layerShapes.length - 1];
+          const topIdx = canvas?.getObjects().indexOf(topMostInLayer);
+          if (topIdx !== undefined && topIdx !== -1) {
+            canvas?.moveObjectTo(activeObj, topIdx);
+          }
+        }
+      }
+
+      setVersion(v => v + 1);
+      canvas?.requestRenderAll();
+      canvas?.fire('object:modified', { target: activeObj });
+      toast.success("Shape reordered");
       return;
     }
 
@@ -424,12 +459,6 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
     return node.children.some(id => shouldShowNode(id));
   }, [searchQuery, tree.nodes, objectsMap]);
 
-
-  // Compute flat list for sorting
-  const flattenedItems = useMemo(() => {
-    return flattenTree(tree, objectsMap, tree.rootIds);
-  }, [tree, objectsMap]);
-
   // Recursively render tree? No, let's use flat rendering for stability
   const renderFlatTree = () => {
     if (flattenedItems.length === 0) return null;
@@ -483,6 +512,7 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
             return (
               <ShapeItem
                 key={id}
+                id={id}
                 object={object}
                 depth={depth}
                 isActive={activeObject === object}
