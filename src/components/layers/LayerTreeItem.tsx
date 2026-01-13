@@ -3,7 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronRight, ChevronDown, Folder, MoreVertical, Plus, Pencil, Trash2, FolderOpen, Layers, GripVertical, Eye, EyeOff } from "lucide-react";
+import { ChevronRight, ChevronDown, FolderKanban, MoreVertical, Plus, Pencil, Trash2, Layers, GripVertical, Eye, EyeOff } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -81,7 +81,7 @@ export const LayerTreeItem = ({
     const isSwiping = useRef(false);
     const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
-    const Icon = node.type === 'project' ? FolderOpen : Layers;
+    const Icon = node.type === 'project' ? FolderKanban : Layers;
 
     // Helper visibility toggle
     const handleToggleVisibility = (e: React.MouseEvent) => {
@@ -124,24 +124,38 @@ export const LayerTreeItem = ({
         }, 600);
 
         startX.current = e.clientX;
+        dragX.current = e.clientY; // Track Y for vertical scroll detection
         isSwiping.current = true;
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
         if (!isSwiping.current || isDragging) return; // Don't swipe if DnD dragging (controlled by dnd-kit via handle)
 
-        const delta = e.clientX - startX.current;
-        if (Math.abs(delta) > 5) {
+        const deltaX = e.clientX - startX.current;
+        const deltaY = e.clientY - dragX.current;
+
+        // If vertical movement is dominant, this is a scroll, not a swipe
+        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+            isSwiping.current = false;
+            setSwipeX(0);
+            if (longPressTimer.current) {
+                clearTimeout(longPressTimer.current);
+                longPressTimer.current = null;
+            }
+            return;
+        }
+
+        if (Math.abs(deltaX) > 5) {
             if (longPressTimer.current) {
                 clearTimeout(longPressTimer.current);
                 longPressTimer.current = null;
             }
         }
 
-        // Only horizontal slides
-        if (delta < 0 && Math.abs(delta) < 100) {
-            setSwipeX(delta);
-        } else {
+        // Only allow left swipe (negative deltaX)
+        if (deltaX < 0 && Math.abs(deltaX) < 100) {
+            setSwipeX(deltaX);
+        } else if (deltaX >= 0) {
             setSwipeX(0);
         }
     };
@@ -154,11 +168,18 @@ export const LayerTreeItem = ({
         isSwiping.current = false;
 
         const delta = e.clientX - startX.current;
-        if (delta < -50) {
-            // Swiped Left
-            // Show delete confirmation or visual
+        if (delta < -40) {
+            // Swiped Left far enough - keep it open
+            setSwipeX(-80); // Fixed position showing delete
+
+            // Auto-close after 3 seconds
+            setTimeout(() => {
+                setSwipeX(0);
+            }, 3000);
+        } else {
+            // Not swiped far enough - close immediately
+            setSwipeX(0);
         }
-        setSwipeX(0);
     };
 
     return (
@@ -243,7 +264,7 @@ export const LayerTreeItem = ({
                     </div>
 
                     {/* Visibility & Add Actions */}
-                    <div className="flex items-center opacity-0 group-hover/node:opacity-100 transition-opacity">
+                    <div className="flex items-center">
                         {/* We don't have visibility state on node yet, just UI */}
                         <Button
                             variant="ghost"

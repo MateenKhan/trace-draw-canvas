@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Canvas, FabricObject } from "fabric";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Layers as LayersIcon, Folder, ChevronRight, ChevronDown, Plus, FolderOpen, MoreVertical, Search, Pencil, Trash2 } from "lucide-react";
+import { Layers as LayersIcon, FolderKanban, ChevronRight, ChevronDown, Plus, MoreVertical, Search, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,8 +40,22 @@ interface LayersPanelProps {
 }
 
 export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
-  // Tree State
-  const [tree, setTree] = useState<LayerTreeState>(createInitialState(projectName));
+  // Tree State - Load from localStorage or create initial
+  const [tree, setTree] = useState<LayerTreeState>(() => {
+    try {
+      const saved = localStorage.getItem('layerTreeState');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Validate that it has the required structure
+        if (parsed.nodes && parsed.rootIds) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load layer tree state:', error);
+    }
+    return createInitialState(projectName);
+  });
 
   // Fabric Objects State
   const [objects, setObjects] = useState<FabricObject[]>([]);
@@ -77,6 +91,15 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Save tree state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('layerTreeState', JSON.stringify(tree));
+    } catch (error) {
+      console.error('Failed to save layer tree state:', error);
+    }
+  }, [tree]);
 
   // Sync Project Name change
   useEffect(() => {
@@ -166,10 +189,23 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
 
   const handleCreateNode = (parentId: string, type: 'project' | 'layer') => {
     const newId = generateId();
+
+    // Calculate next number for this type
+    const existingNodes = Object.values(tree.nodes).filter(n => n.type === type);
+    const existingNumbers = existingNodes
+      .map(n => {
+        const match = n.name.match(new RegExp(`${type === 'project' ? 'Project' : 'Layer'}-(\\d+)`, 'i'));
+        return match ? parseInt(match[1]) : 0;
+      })
+      .filter(num => num > 0);
+
+    const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+    const name = type === 'project' ? `Project-${nextNumber}` : `Layer-${nextNumber}`;
+
     const newNode = {
       id: newId,
       type,
-      name: type === 'project' ? 'New Project' : 'New Layer',
+      name,
       expanded: true,
       children: [],
       parentId
@@ -187,7 +223,7 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
       rootIds: prev.rootIds
     }));
     setActiveNodeId(newId);
-    toast.success(`New ${type} created`);
+    toast.success(`${name} created`);
   };
 
   const handleDeleteNode = (id: string) => {
@@ -520,7 +556,7 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
             className="flex-1 h-7 text-[10px] gap-1 px-2"
             onClick={() => handleCreateNode(activeLayerId || tree.rootIds[0], 'project')}
           >
-            <Folder className="w-3 h-3" />
+            <FolderKanban className="w-3 h-3" />
             New Project
           </Button>
           <Button
@@ -561,7 +597,7 @@ export const LayersPanel = ({ canvas, projectName }: LayersPanelProps) => {
             >
               <div className="flex items-center gap-2">
                 {activeDragData?.type === 'node' ? (
-                  tree.nodes[activeDragId]?.type === 'project' ? <Folder className="w-3.5 h-3.5" /> : <LayersIcon className="w-3.5 h-3.5" />
+                  tree.nodes[activeDragId]?.type === 'project' ? <FolderKanban className="w-3.5 h-3.5" /> : <LayersIcon className="w-3.5 h-3.5" />
                 ) : (
                   <Plus className="w-3.5 h-3.5" />
                 )}

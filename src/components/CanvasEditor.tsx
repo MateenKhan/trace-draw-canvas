@@ -673,6 +673,7 @@ const CanvasEditor = () => {
               onRedo={redo}
               canUndo={canUndo}
               canRedo={canRedo}
+              hideToolbar={showLayersPanel}
             />
           </div>
 

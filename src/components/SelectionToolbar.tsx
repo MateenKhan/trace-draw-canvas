@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Canvas as FabricCanvas, FabricObject } from "fabric";
 import { Button } from "@/components/ui/button";
-import { 
-  Trash2, 
-  Copy, 
-  Palette, 
-  ArrowUp, 
+import {
+  Trash2,
+  Copy,
+  Palette,
+  ArrowUp,
   ArrowDown,
   Undo2,
   Redo2,
@@ -28,6 +28,7 @@ interface SelectionToolbarProps {
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
+  hideToolbar?: boolean;
 }
 
 const QUICK_COLORS = [
@@ -47,6 +48,7 @@ export const SelectionToolbar = ({
   onRedo,
   canUndo = false,
   canRedo = false,
+  hideToolbar = false,
 }: SelectionToolbarProps) => {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
@@ -154,7 +156,7 @@ export const SelectionToolbar = ({
     onColorChange?.(color);
   }, [canvas, onColorChange]);
 
-  if (!hasSelection || !position) return null;
+  if (!hasSelection || !position || hideToolbar) return null;
 
   return (
     <div
@@ -207,19 +209,19 @@ export const SelectionToolbar = ({
       <div className="w-px h-5 bg-panel-border" />
 
       {/* Undo/Redo */}
-      <Button 
-        variant="toolbar" 
-        size="icon" 
-        className="w-9 h-9" 
+      <Button
+        variant="toolbar"
+        size="icon"
+        className="w-9 h-9"
         onClick={onUndo}
         disabled={!canUndo}
       >
         <Undo2 className="w-4 h-4" />
       </Button>
-      <Button 
-        variant="toolbar" 
-        size="icon" 
-        className="w-9 h-9" 
+      <Button
+        variant="toolbar"
+        size="icon"
+        className="w-9 h-9"
         onClick={onRedo}
         disabled={!canRedo}
       >
@@ -229,10 +231,10 @@ export const SelectionToolbar = ({
       <div className="w-px h-5 bg-panel-border" />
 
       {/* Delete */}
-      <Button 
-        variant="toolbar" 
-        size="icon" 
-        className="w-9 h-9 hover:bg-destructive/20 hover:text-destructive" 
+      <Button
+        variant="toolbar"
+        size="icon"
+        className="w-9 h-9 hover:bg-destructive/20 hover:text-destructive"
         onClick={onDelete}
       >
         <Trash2 className="w-4 h-4" />

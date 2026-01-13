@@ -68,6 +68,7 @@ export const ShapeItem = memo(({
     // Swipe State
     const [swipeX, setSwipeX] = useState(0);
     const startX = useRef(0);
+    const dragY = useRef(0);
     const isSwiping = useRef(false);
 
     // Long Press State
@@ -103,23 +104,37 @@ export const ShapeItem = memo(({
         }, 600);
 
         startX.current = e.clientX;
+        dragY.current = e.clientY;
         isSwiping.current = true;
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
         if (!isSwiping.current || isSorting) return;
 
-        const delta = e.clientX - startX.current;
-        if (Math.abs(delta) > 5) {
+        const deltaX = e.clientX - startX.current;
+        const deltaY = e.clientY - dragY.current;
+
+        // If vertical movement is dominant, this is a scroll, not a swipe
+        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+            isSwiping.current = false;
+            setSwipeX(0);
+            if (longPressTimer.current) {
+                clearTimeout(longPressTimer.current);
+                longPressTimer.current = null;
+            }
+            return;
+        }
+
+        if (Math.abs(deltaX) > 5) {
             if (longPressTimer.current) {
                 clearTimeout(longPressTimer.current);
                 longPressTimer.current = null;
             }
         }
 
-        if (delta < 0 && Math.abs(delta) < 100) {
-            setSwipeX(delta);
-        } else {
+        if (deltaX < 0 && Math.abs(deltaX) < 100) {
+            setSwipeX(deltaX);
+        } else if (deltaX >= 0) {
             setSwipeX(0);
         }
     };
@@ -130,7 +145,19 @@ export const ShapeItem = memo(({
             longPressTimer.current = null;
         }
         isSwiping.current = false;
-        setSwipeX(0);
+
+        const delta = e.clientX - startX.current;
+        if (delta < -40) {
+            // Swiped Left far enough - keep it open
+            setSwipeX(-80);
+
+            // Auto-close after 3 seconds
+            setTimeout(() => {
+                setSwipeX(0);
+            }, 3000);
+        } else {
+            setSwipeX(0);
+        }
     };
 
     const style = {
