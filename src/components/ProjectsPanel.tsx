@@ -35,6 +35,12 @@ import {
   Clock,
   X,
   Check,
+  ChevronRight,
+  ChevronDown,
+  Circle,
+  Square,
+  Triangle,
+  Type,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project, formatDate, getProjects } from "@/lib/projects";
@@ -147,17 +153,205 @@ export const ProjectsPanel = ({
 
   if (!isVisible) return null;
 
+  // Mobile: Use Sheet for slidable panel
+  if (isMobile) {
+    return (
+      <>
+        <Sheet open={isVisible} onOpenChange={(open) => !open && onClose()}>
+          <SheetContent 
+            side="left" 
+            className="w-[85%] max-w-sm p-0 flex flex-col"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-panel-border shrink-0">
+              <div className="flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-semibold">Projects</h2>
+              </div>
+              <div className="flex items-center gap-2 mr-8">
+                <Button 
+                  variant="toolbar" 
+                  size="sm" 
+                  onClick={() => {
+                    console.log('[ProjectsPanel] Mobile: New button clicked, creating project inline');
+                    handleCreateProject();
+                  }}
+                  className="gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">New</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Project List */}
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1">
+                {projects.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FolderOpen className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No projects yet</p>
+                    <p className="text-xs mt-1">Create your first project to get started</p>
+                  </div>
+                ) : (
+                  projects.map((project) => (
+                    <div
+                      key={project.id}
+                      className={cn(
+                        "group relative flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                        activeProjectId === project.id
+                          ? "bg-primary/10 border border-primary/30"
+                          : "hover:bg-muted/50"
+                      )}
+                      onClick={() => onOpenProject(project.id)}
+                    >
+                      {/* Thumbnail */}
+                      <div className="w-12 h-12 rounded-md bg-muted/30 border border-panel-border overflow-hidden flex-shrink-0">
+                        {project.thumbnail ? (
+                          <img 
+                            src={project.thumbnail} 
+                            alt={project.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <FolderOpen className="w-5 h-5" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        {editingId === project.id ? (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              className="h-7 text-sm"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleConfirmRename();
+                                if (e.key === 'Escape') setEditingId(null);
+                              }}
+                            />
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleConfirmRename}>
+                              <Check className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <h3 className="font-medium text-sm truncate text-foreground">{project.name}</h3>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(project.updatedAt)}
+                              {project.history.length > 0 && (
+                                <span className="ml-1">• {project.history.length} snapshots</span>
+                              )}
+                            </p>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Actions - always visible on mobile */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 opacity-100 flex-shrink-0"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStartRename(project); }}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDuplicateProject(project.id); }}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onViewHistory(project.id); }}>
+                            <Clock className="w-4 h-4 mr-2" />
+                            History
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={(e) => { e.stopPropagation(); setShowDeleteDialog(project.id); }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </SheetContent>
+        </Sheet>
+
+        {/* New Project Sheet for mobile */}
+        <Sheet open={showNewProjectDialog} onOpenChange={setShowNewProjectDialog}>
+          <SheetContent 
+            side="bottom" 
+            className="max-h-[90vh] h-auto rounded-t-xl flex flex-col"
+          >
+            <SheetHeader className="flex-shrink-0">
+              <SheetTitle>New Project</SheetTitle>
+              <SheetDescription>
+                Create a new project to start designing
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 flex flex-col min-h-0 py-4">
+              <Input
+                placeholder="Project name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
+                autoFocus
+                className="text-foreground bg-background"
+              />
+            </div>
+            <SheetFooter className="flex-shrink-0 flex-col gap-2 sm:flex-row">
+              <Button variant="outline" onClick={() => setShowNewProjectDialog(false)} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+              <Button onClick={handleCreateProject} disabled={!newProjectName.trim()} className="w-full sm:w-auto">
+                Create
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!showDeleteDialog} onOpenChange={() => setShowDeleteDialog(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete Project</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this project? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteDialog(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  // Desktop: Use fixed panel (doesn't affect layout)
   return (
     <>
-      <div className="fixed inset-0 z-[100] lg:relative lg:inset-auto">
-        {/* Backdrop for mobile */}
-        <div 
-          className="absolute inset-0 bg-background/80 backdrop-blur-sm lg:hidden" 
-          onClick={onClose} 
-        />
-        
-        {/* Panel */}
-        <div className="absolute inset-y-0 left-0 w-[85%] max-w-sm lg:relative lg:w-80 lg:max-w-none bg-background border-r border-panel-border flex flex-col overflow-hidden animate-slide-up lg:animate-none">
+      <div className="hidden lg:block fixed inset-y-0 left-0 w-80 z-[100] bg-background border-r border-panel-border flex flex-col overflow-hidden" style={{ willChange: 'transform' }}>
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-panel-border">
             <div className="flex items-center gap-2">
@@ -169,26 +363,13 @@ export const ProjectsPanel = ({
                 variant="toolbar" 
                 size="sm" 
                 onClick={() => {
-                  if (isMobile) {
-                    console.log('[ProjectsPanel] Mobile: New button clicked, creating project inline');
-                    handleCreateProject();
-                  } else {
-                    console.log('[ProjectsPanel] Desktop: New button clicked, opening dialog');
-                    setShowNewProjectDialog(true);
-                  }
+                  console.log('[ProjectsPanel] Desktop: New button clicked, opening dialog');
+                  setShowNewProjectDialog(true);
                 }}
                 className="gap-1"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">New</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="lg:hidden" 
-                onClick={onClose}
-              >
-                <X className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -298,7 +479,6 @@ export const ProjectsPanel = ({
               )}
             </div>
           </ScrollArea>
-        </div>
       </div>
 
       {/* New Project Dialog/Sheet */}

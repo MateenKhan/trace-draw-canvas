@@ -209,7 +209,7 @@ export const MobileSimulationPlayer = ({
       </div>
 
       {/* Bottom Dock - Compact Controls */}
-      <div className="bg-black/90 backdrop-blur-md border-t border-white/10 px-3 py-2 pb-safe">
+      <div className="absolute bottom-0 left-0 right-0 bg-black/90 backdrop-blur-md border-t border-white/10 px-3 py-2 pb-safe shrink-0">
         {/* Progress Bar - Compact */}
         <div className="mb-2">
           <Slider

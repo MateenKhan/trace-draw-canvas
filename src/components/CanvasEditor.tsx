@@ -4,7 +4,6 @@ import { useDrawingTools } from "@/hooks/useDrawingTools";
 import { useImageEditing } from "@/hooks/useImageEditing";
 import { useMobileDrawing } from "@/hooks/useMobileDrawing";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
-import { useAutoSave } from "@/hooks/useAutoSave";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DrawingToolbar } from "@/components/DrawingToolbar";
 import { PropertyPanel } from "@/components/PropertyPanel";
@@ -15,7 +14,6 @@ import { GCodeDialog } from "@/components/GCodeDialog";
 import { Inline3DExtrude } from "@/components/Inline3DExtrude";
 import { LayersPanel } from "@/components/LayersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
-import { RecoveryDialog } from "@/components/RecoveryDialog";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
 import { MobileSimulationPlayer } from "@/components/MobileSimulationPlayer";
 import { ProjectsPanel } from "@/components/ProjectsPanel";
@@ -95,9 +93,7 @@ const CanvasEditor = () => {
   const [show3DPanel, setShow3DPanel] = useState(false);
   const [showMobileSimulation, setShowMobileSimulation] = useState(false);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
-  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [canDeleteSelected, setCanDeleteSelected] = useState(false);
-  const [canClearCanvas, setCanClearCanvas] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Project state
@@ -151,38 +147,6 @@ const CanvasEditor = () => {
   // Undo/Redo hook
   const { undo, redo, canUndo, canRedo, clearHistory, history, currentIndex, restoreToIndex } = useUndoRedo({ canvas });
 
-  // Auto-save hook
-  const { 
-    hasSavedState, 
-    savedTimestamp, 
-    recoverFromStorage, 
-    clearSavedState,
-    getSavedStateInfo,
-    lastSaved,
-  } = useAutoSave({ canvas });
-
-  // Show recovery dialog if there's saved state
-  useEffect(() => {
-    if (hasSavedState && canvas) {
-      setShowRecoveryDialog(true);
-    }
-  }, [hasSavedState, canvas]);
-
-  const handleRecover = useCallback(async () => {
-    const success = await recoverFromStorage();
-    if (success) {
-      toast.success("Canvas recovered successfully!");
-    } else {
-      toast.error("Failed to recover canvas");
-    }
-    setShowRecoveryDialog(false);
-  }, [recoverFromStorage]);
-
-  const handleDiscardRecovery = useCallback(() => {
-    clearSavedState();
-    setShowRecoveryDialog(false);
-    toast.info("Starting fresh");
-  }, [clearSavedState]);
 
   // Mobile drawing hook for interactive shape creation
   const { isInteractiveMode } = useMobileDrawing({
@@ -322,13 +286,6 @@ const CanvasEditor = () => {
     toast.success("SVG exported successfully");
   }, [svgContent]);
 
-  const handleClear = useCallback(() => {
-    clearCanvas();
-    clearHistory();
-    setSvgContent(null);
-    setImageFilter(DEFAULT_IMAGE_FILTER);
-    toast.success("Canvas cleared");
-  }, [clearCanvas, clearHistory]);
 
   const handleDeleteLayer = useCallback((layerId: string) => {
     if (layers.length <= 1) {
@@ -462,6 +419,55 @@ const CanvasEditor = () => {
       });
     }
   }, [viewingProjectId, canvas]);
+
+  // Track previous ProjectsPanel state to detect when it closes
+  const prevProjectsPanelRef = useRef(showProjectsPanel);
+
+  // Reset zoom when ProjectsPanel closes
+  useEffect(() => {
+    if (!canvas) return;
+    
+    // Check if panel just closed (was open, now closed)
+    const wasOpen = prevProjectsPanelRef.current;
+    const isNowClosed = !showProjectsPanel;
+    
+    if (wasOpen && isNowClosed && zoom !== 1) {
+      // Animate zoom out smoothly
+      const targetZoom = 1;
+      const startZoom = zoom;
+      const duration = 300; // 300ms animation
+      const startTime = Date.now();
+      
+      const animateZoom = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Ease-out cubic for smooth animation
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        const currentZoom = startZoom + (targetZoom - startZoom) * easedProgress;
+        
+        const center = canvas.getCenterPoint();
+        canvas.zoomToPoint(center, currentZoom);
+        setZoom(currentZoom);
+        canvas.renderAll();
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateZoom);
+        } else {
+          // Ensure we end at exactly 1
+          canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+          setZoom(1);
+          canvas.renderAll();
+        }
+      };
+      
+      // Start animation
+      requestAnimationFrame(animateZoom);
+    }
+    
+    // Update ref for next render
+    prevProjectsPanelRef.current = showProjectsPanel;
+  }, [showProjectsPanel, canvas, zoom]);
 
   // Auto-save to active project
   useEffect(() => {
@@ -655,7 +661,6 @@ const CanvasEditor = () => {
 
     const sync = () => {
       setCanDeleteSelected(canvas.getActiveObjects().length > 0);
-      setCanClearCanvas(canvas.getObjects().length > 0);
     };
 
     sync();
@@ -794,13 +799,6 @@ const CanvasEditor = () => {
               </div>
             )}
 
-            {/* Auto-save indicator */}
-            {lastSaved && (
-              <div className="absolute bottom-4 right-4 z-40 flex items-center gap-1.5 px-2 py-1 rounded-lg glass border border-panel-border text-[10px] text-muted-foreground">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                Auto-saved
-              </div>
-            )}
 
             {/* Interactive drawing mode indicator */}
             {isInteractiveMode && (
@@ -835,10 +833,8 @@ const CanvasEditor = () => {
           onReset={resetView}
           onUpload={handleUploadClick}
           onTrace={handleTrace}
-          onClear={handleClear}
           onDeleteSelected={deleteSelected}
           canDeleteSelected={canDeleteSelected}
-          canClear={canClearCanvas}
           onFullscreen={handleFullscreen}
           onGCode={() => {
             if (isMobile) {
@@ -933,15 +929,6 @@ const CanvasEditor = () => {
         onClose={() => setShowMobileSimulation(false)}
         toolPaths={toolPaths}
         onSimulationChange={handleSimulationChange}
-      />
-
-      {/* Recovery Dialog */}
-      <RecoveryDialog
-        isVisible={showRecoveryDialog}
-        timestamp={savedTimestamp}
-        thumbnail={getSavedStateInfo()?.thumbnail}
-        onRecover={handleRecover}
-        onDiscard={handleDiscardRecovery}
       />
 
       {/* Projects Panel */}

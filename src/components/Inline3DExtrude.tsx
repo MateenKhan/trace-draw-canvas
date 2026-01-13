@@ -572,7 +572,7 @@ export const Inline3DExtrude = ({ isVisible, onClose, canvas }: Inline3DExtrudeP
       </div>
 
       {/* Bottom Dock - Compact Controls */}
-      <div className="bg-background/95 backdrop-blur-md border-t border-panel-border px-3 py-2 pb-safe">
+      <div className="absolute bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-panel-border px-3 py-2 pb-safe shrink-0">
         {/* Depth slider - inline */}
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] text-muted-foreground w-10">Depth</span>

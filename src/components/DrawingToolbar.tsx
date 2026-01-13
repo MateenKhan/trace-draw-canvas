@@ -28,7 +28,6 @@ import {
   PanelRight,
   Image,
   Wand2,
-  Eraser,
   SlidersHorizontal,
   Play,
   Shapes,
@@ -54,10 +53,8 @@ interface DrawingToolbarProps {
   onReset: () => void;
   onUpload: () => void;
   onTrace: () => void;
-  onClear: () => void;
   onDeleteSelected: () => void;
   canDeleteSelected: boolean;
-  canClear: boolean;
   onFullscreen: () => void;
   onGCode: () => void;
   on3D: () => void;
@@ -127,10 +124,8 @@ export const DrawingToolbar = ({
   onReset,
   onUpload,
   onTrace,
-  onClear,
   onDeleteSelected,
   canDeleteSelected,
-  canClear,
   onFullscreen,
   onGCode,
   on3D,
@@ -165,8 +160,6 @@ export const DrawingToolbar = ({
       onToggleSettings?.();
     } else if (id === 'trace') {
       onTrace();
-    } else if (id === 'eraser') {
-      onClear();
     } else if (id === 'shape') {
       handleShapeToolClick();
     } else if (id === 'gcode') {
@@ -178,7 +171,7 @@ export const DrawingToolbar = ({
     } else {
       onToolChange(id as DrawingTool);
     }
-  }, [onToolChange, onToggleSettings, onTrace, onClear, handleShapeToolClick, onGCode, on3D, onToggleProjects]);
+  }, [onToolChange, onToggleSettings, onTrace, handleShapeToolClick, onGCode, on3D, onToggleProjects]);
 
   const ToolButton = ({ tool, isActive }: { 
     tool: typeof selectionTools[0]; 
@@ -232,7 +225,7 @@ export const DrawingToolbar = ({
   );
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-background border-t border-panel-border pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-background border-t border-panel-border pb-safe shrink-0" style={{ willChange: 'transform' }}>
       {/* Brush size slider - shown when pen/pencil is active */}
       <div className="px-4 pt-2">
         <BrushSizeSlider
@@ -360,19 +353,6 @@ export const DrawingToolbar = ({
             <span className="text-[8px] font-medium">3D</span>
           </button>
 
-          {/* Erase/Clear */}
-          <button
-            onClick={() => handleMobileToolClick('eraser')}
-            disabled={!canClear}
-            className={cn(
-              "flex flex-col items-center gap-1 px-1.5 py-1.5 rounded-lg transition-colors min-w-[40px] text-muted-foreground hover:text-foreground",
-              !canClear && "opacity-50"
-            )}
-          >
-            <Eraser className="w-4 h-4" />
-            <span className="text-[8px] font-medium">Clear</span>
-          </button>
-
           {/* Export */}
           <div className="flex flex-col items-center gap-1 min-w-[40px]">
             <ExportMenu 
@@ -441,7 +421,6 @@ export const DrawingToolbar = ({
         <div className="flex items-center gap-0.5">
           <ActionButton icon={Upload} label="Upload Image" onClick={onUpload} className="glow-effect" />
           <ActionButton icon={Trash2} label="Delete Selected" onClick={onDeleteSelected} disabled={!canDeleteSelected} />
-          <ActionButton icon={Trash} label="Clear Canvas" onClick={onClear} disabled={!canClear} />
         </div>
 
         <div className="w-px h-6 bg-panel-border mx-1" />
