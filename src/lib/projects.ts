@@ -40,14 +40,33 @@ export function getProjects(): Project[] {
 // Save projects to localStorage
 export function saveProjects(projects: Project[]): void {
   try {
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+    console.log('[projects.ts] saveProjects called, projects count:', projects.length);
+    const jsonString = JSON.stringify(projects);
+    console.log('[projects.ts] JSON string length:', jsonString.length);
+    localStorage.setItem(PROJECTS_KEY, jsonString);
+    console.log('[projects.ts] Projects saved to localStorage successfully');
+    
+    // Verify it was saved
+    const verify = localStorage.getItem(PROJECTS_KEY);
+    console.log('[projects.ts] Verification: saved data exists:', !!verify, 'length:', verify?.length);
   } catch (error) {
-    console.error('Failed to save projects:', error);
+    console.error('[projects.ts] Failed to save projects:', error);
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+      console.error('[projects.ts] Storage quota exceeded!');
+      throw new Error('Storage quota exceeded. Please free up some space.');
+    }
+    throw error;
   }
 }
 
 // Create a new project
 export function createProject(name: string, canvasJson: string = '', thumbnail: string = ''): Project {
+  console.log('[projects.ts] createProject called', { 
+    name, 
+    canvasJsonLength: canvasJson.length,
+    thumbnailLength: thumbnail.length 
+  });
+  
   const now = Date.now();
   const project: Project = {
     id: generateId(),
@@ -60,10 +79,23 @@ export function createProject(name: string, canvasJson: string = '', thumbnail: 
     historyIndex: -1,
   };
   
-  const projects = getProjects();
-  projects.unshift(project);
-  saveProjects(projects);
+  console.log('[projects.ts] Project object created:', { 
+    id: project.id, 
+    name: project.name,
+    createdAt: project.createdAt 
+  });
   
+  const projects = getProjects();
+  console.log('[projects.ts] Current projects count:', projects.length);
+  
+  projects.unshift(project);
+  console.log('[projects.ts] Project added to array, new count:', projects.length);
+  
+  console.log('[projects.ts] Saving projects to localStorage...');
+  saveProjects(projects);
+  console.log('[projects.ts] Projects saved successfully');
+  
+  console.log('[projects.ts] Returning project:', project.id);
   return project;
 }
 

@@ -370,13 +370,41 @@ const CanvasEditor = () => {
 
   // Project CRUD handlers
   const handleCreateProject = useCallback((name: string) => {
-    const canvasJson = canvas ? JSON.stringify(canvas.toJSON()) : '';
-    const thumbnail = generateThumbnail();
-    const project = createProject(name, canvasJson, thumbnail);
-    setProjects(getProjects());
-    setActiveProjectIdState(project.id);
-    setActiveProjectId(project.id);
-    toast.success(`Project "${name}" created`);
+    console.log('[CanvasEditor] handleCreateProject called', { 
+      name, 
+      hasCanvas: !!canvas,
+      canvasWidth: canvas?.getWidth(),
+      canvasHeight: canvas?.getHeight()
+    });
+    try {
+      console.log('[CanvasEditor] Generating canvas JSON and thumbnail...');
+      const canvasJson = canvas ? JSON.stringify(canvas.toJSON()) : '';
+      console.log('[CanvasEditor] Canvas JSON length:', canvasJson.length);
+      const thumbnail = generateThumbnail();
+      console.log('[CanvasEditor] Thumbnail generated, length:', thumbnail.length);
+      
+      console.log('[CanvasEditor] Calling createProject...');
+      const project = createProject(name, canvasJson, thumbnail);
+      console.log('[CanvasEditor] Project created successfully:', { 
+        id: project.id, 
+        name: project.name 
+      });
+      
+      console.log('[CanvasEditor] Updating projects list and active project...');
+      setProjects(getProjects());
+      setActiveProjectIdState(project.id);
+      setActiveProjectId(project.id);
+      console.log('[CanvasEditor] Showing success toast...');
+      toast.success(`Project "${name}" created`);
+      console.log('[CanvasEditor] handleCreateProject completed successfully');
+    } catch (error) {
+      console.error('[CanvasEditor] Failed to create project:', error);
+      console.error('[CanvasEditor] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      toast.error(`Failed to create project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }, [canvas, generateThumbnail]);
 
   const handleOpenProject = useCallback((id: string) => {

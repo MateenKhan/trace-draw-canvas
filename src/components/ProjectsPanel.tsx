@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,6 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +37,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Project, formatDate } from "@/lib/projects";
+import { Project, formatDate, getProjects } from "@/lib/projects";
 
 interface ProjectsPanelProps {
   isVisible: boolean;
@@ -55,19 +64,38 @@ export const ProjectsPanel = ({
   onDeleteProject,
   onViewHistory,
 }: ProjectsPanelProps) => {
+  const isMobile = useIsMobile();
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const pendingNewProjectRef = useRef<boolean>(false);
 
   const handleCreateProject = useCallback(() => {
-    if (newProjectName.trim()) {
-      onCreateProject(newProjectName.trim());
-      setNewProjectName("");
-      setShowNewProjectDialog(false);
+    if (isMobile) {
+      // On mobile: create project immediately with default name
+      const defaultName = 'Untitled Project';
+      console.log('[ProjectsPanel] Mobile: Creating project with default name:', defaultName);
+      pendingNewProjectRef.current = true;
+      onCreateProject(defaultName);
+    } else {
+      // Desktop: use dialog
+      if (newProjectName.trim()) {
+        try {
+          console.log('[ProjectsPanel] Desktop: Calling onCreateProject with:', newProjectName.trim());
+          onCreateProject(newProjectName.trim());
+          setNewProjectName("");
+          setShowNewProjectDialog(false);
+          console.log('[ProjectsPanel] Desktop: Project creation initiated, dialog closed');
+        } catch (error) {
+          console.error('[ProjectsPanel] Desktop: Error creating project:', error);
+        }
+      } else {
+        console.warn('[ProjectsPanel] Desktop: handleCreateProject called but project name is empty');
+      }
     }
-  }, [newProjectName, onCreateProject]);
+  }, [newProjectName, onCreateProject, isMobile]);
 
   const handleStartRename = useCallback((project: Project) => {
     setEditingId(project.id);
@@ -77,10 +105,38 @@ export const ProjectsPanel = ({
   const handleConfirmRename = useCallback(() => {
     if (editingId && editingName.trim()) {
       onRenameProject(editingId, editingName.trim());
+      pendingNewProjectRef.current = false;
     }
     setEditingId(null);
     setEditingName("");
   }, [editingId, editingName, onRenameProject]);
+
+  // On mobile: auto-start editing when new project is created
+  useEffect(() => {
+    if (!isMobile || !pendingNewProjectRef.current) return;
+    
+    // Find the most recently created project with default name
+    // Projects are sorted newest first, so the first one with default name is the newest
+    const defaultName = 'Untitled Project';
+    const newProject = projects.find(p => p.name === defaultName);
+    
+    if (newProject && editingId !== newProject.id) {
+      // Check if it was created very recently (within last 3 seconds)
+      const isRecent = Date.now() - newProject.createdAt < 3000;
+      if (isRecent) {
+        console.log('[ProjectsPanel] Mobile: Starting inline edit for new project:', newProject.id);
+        setEditingId(newProject.id);
+        setEditingName(defaultName);
+        // Focus and select text after a brief delay to ensure DOM is updated
+        setTimeout(() => {
+          const input = document.activeElement as HTMLInputElement;
+          if (input && input.tagName === 'INPUT' && input.value === defaultName) {
+            input.select();
+          }
+        }, 150);
+      }
+    }
+  }, [projects, isMobile, editingId]);
 
   const handleConfirmDelete = useCallback(() => {
     if (showDeleteDialog) {
@@ -112,7 +168,15 @@ export const ProjectsPanel = ({
               <Button 
                 variant="toolbar" 
                 size="sm" 
-                onClick={() => setShowNewProjectDialog(true)}
+                onClick={() => {
+                  if (isMobile) {
+                    console.log('[ProjectsPanel] Mobile: New button clicked, creating project inline');
+                    handleCreateProject();
+                  } else {
+                    console.log('[ProjectsPanel] Desktop: New button clicked, opening dialog');
+                    setShowNewProjectDialog(true);
+                  }
+                }}
                 className="gap-1"
               >
                 <Plus className="w-4 h-4" />
@@ -185,7 +249,7 @@ export const ProjectsPanel = ({
                         </div>
                       ) : (
                         <>
-                          <h3 className="font-medium text-sm truncate">{project.name}</h3>
+                          <h3 className="font-medium text-sm truncate text-foreground">{project.name}</h3>
                           <p className="text-xs text-muted-foreground">
                             {formatDate(project.updatedAt)}
                             {project.history.length > 0 && (
@@ -237,34 +301,68 @@ export const ProjectsPanel = ({
         </div>
       </div>
 
-      {/* New Project Dialog */}
-      <Dialog open={showNewProjectDialog} onOpenChange={setShowNewProjectDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>New Project</DialogTitle>
-            <DialogDescription>
-              Create a new project to start designing
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Project name"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewProjectDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateProject} disabled={!newProjectName.trim()}>
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* New Project Dialog/Sheet */}
+      {isMobile ? (
+        <Sheet open={showNewProjectDialog} onOpenChange={setShowNewProjectDialog}>
+          <SheetContent 
+            side="bottom" 
+            className="max-h-[90vh] h-auto rounded-t-xl flex flex-col"
+          >
+            <SheetHeader className="flex-shrink-0">
+              <SheetTitle>New Project</SheetTitle>
+              <SheetDescription>
+                Create a new project to start designing
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 flex flex-col min-h-0 py-4">
+              <Input
+                placeholder="Project name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
+                autoFocus
+                className="text-foreground bg-background"
+              />
+            </div>
+            <SheetFooter className="flex-shrink-0 flex-col gap-2 sm:flex-row">
+              <Button variant="outline" onClick={() => setShowNewProjectDialog(false)} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+              <Button onClick={handleCreateProject} disabled={!newProjectName.trim()} className="w-full sm:w-auto">
+                Create
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={showNewProjectDialog} onOpenChange={setShowNewProjectDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>New Project</DialogTitle>
+              <DialogDescription>
+                Create a new project to start designing
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Input
+                placeholder="Project name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowNewProjectDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateProject} disabled={!newProjectName.trim()}>
+                Create
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!showDeleteDialog} onOpenChange={() => setShowDeleteDialog(null)}>
