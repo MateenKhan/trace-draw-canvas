@@ -44,23 +44,23 @@
     --success: 160 70% 45%;
     --warning: 45 90% 55%;
     --info: 200 80% 55%;
-    
+
     /* Glassmorphism */
     --glass-bg: 220 16% 12% / 0.7;
     --glass-border: 220 14% 30% / 0.5;
     --glass-blur: 16px;
-    
+
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(185 70% 50%) 0%, hsl(200 80% 55%) 100%);
     --gradient-panel: linear-gradient(180deg, hsl(220 16% 14% / 0.8) 0%, hsl(220 16% 10% / 0.8) 100%);
     --gradient-glow: radial-gradient(ellipse at center, hsl(185 70% 50% / 0.15) 0%, transparent 70%);
-    
+
     /* Shadows */
     --shadow-sm: 0 2px 8px hsl(220 16% 4% / 0.4);
     --shadow-md: 0 4px 16px hsl(220 16% 4% / 0.5);
     --shadow-lg: 0 8px 32px hsl(220 16% 4% / 0.6);
     --shadow-glow: 0 0 20px hsl(185 70% 50% / 0.3);
-    
+
     /* Sidebar tokens */
     --sidebar-background: 220 16% 10%;
     --sidebar-foreground: 210 20% 85%;
@@ -97,42 +97,64 @@
     -webkit-backdrop-filter: blur(16px);
     box-shadow: var(--shadow-lg), inset 0 1px 0 hsl(220 14% 30% / 0.2);
   }
-  
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
   .panel-header {
     @apply px-4 py-3 border-b font-mono text-xs uppercase tracking-wider text-muted-foreground;
     border-color: hsl(var(--glass-border));
   }
-  
+
   .glass {
     background: hsl(220 16% 12% / 0.85);
     border: 1px solid hsl(220 14% 30% / 0.5);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
-  
+
   .toolbar-button {
     @apply flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-200;
     @apply hover:bg-secondary text-muted-foreground hover:text-foreground;
     @apply active:scale-95;
   }
-  
+
   .toolbar-button-active {
     @apply bg-primary/20 text-primary border border-primary/30;
     box-shadow: var(--shadow-glow);
   }
-  
+
   .slider-track {
     @apply h-1.5 rounded-full bg-secondary;
   }
-  
+
   .slider-thumb {
     @apply w-4 h-4 rounded-full bg-primary border-2 border-background;
     box-shadow: var(--shadow-sm);
   }
-  
+
   .canvas-container {
     @apply bg-canvas rounded-lg overflow-hidden;
-    background-image: 
+    background-image:
       linear-gradient(45deg, hsl(220 16% 10%) 25%, transparent 25%),
       linear-gradient(-45deg, hsl(220 16% 10%) 25%, transparent 25%),
       linear-gradient(45deg, transparent 75%, hsl(220 16% 10%) 75%),
@@ -140,11 +162,11 @@
     background-size: 20px 20px;
     background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
   }
-  
+
   .glow-effect {
     position: relative;
   }
-  
+
   .glow-effect::before {
     content: '';
     position: absolute;
@@ -156,7 +178,7 @@
     z-index: -1;
     filter: blur(8px);
   }
-  
+
   .glow-effect:hover::before {
     opacity: 0.5;
   }
@@ -166,50 +188,154 @@
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
   }
-  
+
   .animate-slide-up {
     animation: slideUp 0.3s ease-out;
   }
-  
+
   .animate-scale-in {
     animation: scaleIn 0.2s ease-out;
   }
-  
+
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
-  
+
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  
+
   @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
-  
+
+  @keyframes border-run {
+    from {
+      background-position: 0 0, 100% 100%, 0 100%, 100% 0;
+    }
+
+    to {
+      background-position: 100% 100%, 0 0, 100% 0, 0 100%;
+    }
+  }
+
+  .running-border {
+    position: relative;
+  }
+
+  .running-border::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 2px;
+    border-radius: inherit;
+    background:
+      linear-gradient(90deg, hsl(var(--primary)) 50%, transparent 50%) repeat-x,
+      linear-gradient(90deg, hsl(var(--primary)) 50%, transparent 50%) repeat-x,
+      linear-gradient(0deg, hsl(var(--primary)) 50%, transparent 50%) repeat-y,
+      linear-gradient(0deg, hsl(var(--primary)) 50%, transparent 50%) repeat-y;
+    background-size: 8px 1px, 8px 1px, 1px 8px, 1px 8px;
+    background-position: 0 0, 0 100%, 0 0, 100% 0;
+    animation: border-run 1s linear infinite;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 50;
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--muted)) transparent;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--muted));
     border-radius: 3px;
   }
-  
+
   /* Safe area padding for iOS */
   .pb-safe {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
+}
+
+/* Prevent zoom on mobile inputs */
+@media screen and (max-width: 768px) {
+
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Custom Scrollbar for Layers Panel */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* DND Anti-Jitter Optimizations */
+[data-dnd-sortable] {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  perspective: 1000px;
+  -webkit-perspective: 1000px;
+}
+
+/* Prevent layout shifts during drag */
+.dnd-item {
+  contain: layout style;
+  transform: translate3d(0, 0, 0);
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from "react";
 import { useCanvas } from "@/hooks/useCanvas";
 import { useDrawingTools } from "@/hooks/useDrawingTools";
 import { useImageEditing } from "@/hooks/useImageEditing";
@@ -10,36 +10,38 @@ import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
 import { SvgPreview } from "@/components/SvgPreview";
 import { ImageUploadDialog } from "@/components/ImageUploadDialog";
-import { GCodeDialog } from "@/components/GCodeDialog";
-import { Inline3DExtrude } from "@/components/Inline3DExtrude";
 import { LayersPanel } from "@/components/LayersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
-import { MobileSimulationPlayer } from "@/components/MobileSimulationPlayer";
 import { ProjectsPanel } from "@/components/ProjectsPanel";
 import { ProjectHistoryPanel } from "@/components/ProjectHistoryPanel";
+
+// Lazy load heavy components
+const GCodeDialog = lazy(() => import("@/components/GCodeDialog").then(module => ({ default: module.GCodeDialog })));
+const Inline3DExtrude = lazy(() => import("@/components/Inline3DExtrude").then(module => ({ default: module.Inline3DExtrude })));
+const MobileSimulationPlayer = lazy(() => import("@/components/MobileSimulationPlayer").then(module => ({ default: module.MobileSimulationPlayer })));
 import { traceImageToSVG, defaultTraceSettings, TraceSettings } from "@/lib/tracing";
 import { Layer, LayerGroup, createDefaultLayers } from "@/lib/layers";
-import { ToolPath, pathToPoints, PathPoint } from "@/lib/gcode";
-import { 
-  Project, 
-  getProjects, 
-  createProject, 
-  updateProject, 
-  deleteProject, 
-  duplicateProject, 
-  getActiveProjectId, 
+import { ToolPath, PathPoint, extractToolPathsFromObjects } from "@/lib/gcode";
+import {
+  Project,
+  getProjects,
+  createProject,
+  updateProject,
+  deleteProject,
+  duplicateProject,
+  getActiveProjectId,
   setActiveProjectId,
   addProjectSnapshot,
   restoreToSnapshot,
   getProject,
 } from "@/lib/projects";
 import { FolderOpen } from "lucide-react";
-import { 
-  DrawingTool, 
-  StrokeStyle, 
-  FillStyle, 
-  TextStyle, 
+import {
+  DrawingTool,
+  StrokeStyle,
+  FillStyle,
+  TextStyle,
   ImageFilter,
   DEFAULT_STROKE,
   DEFAULT_FILL,
@@ -65,25 +67,25 @@ const CanvasEditor = () => {
   const isMobile = useIsMobile();
   // Tool state
   const [activeTool, setActiveTool] = useState<DrawingTool>("select");
-  
+
   // Style states
   const [stroke, setStroke] = useState<StrokeStyle>(DEFAULT_STROKE);
   const [fill, setFill] = useState<FillStyle>(DEFAULT_FILL);
   const [textStyle, setTextStyle] = useState<TextStyle>(DEFAULT_TEXT_STYLE);
   const [imageFilter, setImageFilter] = useState<ImageFilter>(DEFAULT_IMAGE_FILTER);
-  
+
   // Trace state
   const [traceSettings, setTraceSettings] = useState<TraceSettings>(defaultTraceSettings);
   const [svgContent, setSvgContent] = useState<string | null>(null);
   const [showSvgOverlay, setShowSvgOverlay] = useState(true);
   const [isTracing, setIsTracing] = useState(false);
-  
+
   // Layer state
   const [layers, setLayers] = useState<Layer[]>(createDefaultLayers());
   const [groups, setGroups] = useState<LayerGroup[]>([]);
   const [activeLayerId, setActiveLayerId] = useState<string | null>(layers[0]?.id || null);
   const [showLayersPanel, setShowLayersPanel] = useState(true);
-  
+
   // UI state
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [activePanel, setActivePanel] = useState<"properties" | "trace">("properties");
@@ -327,8 +329,8 @@ const CanvasEditor = () => {
 
   // Project CRUD handlers
   const handleCreateProject = useCallback((name: string) => {
-    console.log('[CanvasEditor] handleCreateProject called', { 
-      name, 
+    console.log('[CanvasEditor] handleCreateProject called', {
+      name,
       hasCanvas: !!canvas,
       canvasWidth: canvas?.getWidth(),
       canvasHeight: canvas?.getHeight()
@@ -339,14 +341,14 @@ const CanvasEditor = () => {
       console.log('[CanvasEditor] Canvas JSON length:', canvasJson.length);
       const thumbnail = generateThumbnail();
       console.log('[CanvasEditor] Thumbnail generated, length:', thumbnail.length);
-      
+
       console.log('[CanvasEditor] Calling createProject...');
       const project = createProject(name, canvasJson, thumbnail);
-      console.log('[CanvasEditor] Project created successfully:', { 
-        id: project.id, 
-        name: project.name 
+      console.log('[CanvasEditor] Project created successfully:', {
+        id: project.id,
+        name: project.name
       });
-      
+
       console.log('[CanvasEditor] Updating projects list and active project...');
       setProjects(getProjects());
       setActiveProjectIdState(project.id);
@@ -367,7 +369,7 @@ const CanvasEditor = () => {
   const handleOpenProject = useCallback((id: string) => {
     const project = getProject(id);
     if (!project || !canvas) return;
-    
+
     canvas.loadFromJSON(project.canvasJson ? JSON.parse(project.canvasJson) : {}, () => {
       canvas.renderAll();
       setActiveProjectIdState(id);
@@ -409,7 +411,7 @@ const CanvasEditor = () => {
 
   const handleRestoreProjectSnapshot = useCallback((index: number) => {
     if (!viewingProjectId || !canvas) return;
-    
+
     const project = restoreToSnapshot(viewingProjectId, index);
     if (project) {
       canvas.loadFromJSON(JSON.parse(project.canvasJson), () => {
@@ -426,45 +428,45 @@ const CanvasEditor = () => {
   // Reset zoom when ProjectsPanel closes
   useEffect(() => {
     if (!canvas) return;
-    
+
     // Check if panel just closed (was open, now closed)
     const wasOpen = prevProjectsPanelRef.current;
     const isNowClosed = !showProjectsPanel;
-    
+
     if (wasOpen && isNowClosed && zoom !== 1) {
       // Animate zoom out smoothly
       const targetZoom = 1;
       const startZoom = zoom;
       const duration = 300; // 300ms animation
       const startTime = Date.now();
-      
+
       const animateZoom = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        
+
         // Ease-out cubic for smooth animation
         const easedProgress = 1 - Math.pow(1 - progress, 3);
         const currentZoom = startZoom + (targetZoom - startZoom) * easedProgress;
-        
+
         const center = canvas.getCenterPoint();
         canvas.zoomToPoint(center, currentZoom);
-        setZoom(currentZoom);
+        setZoomLevel(currentZoom);
         canvas.renderAll();
-        
+
         if (progress < 1) {
           requestAnimationFrame(animateZoom);
         } else {
           // Ensure we end at exactly 1
           canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-          setZoom(1);
+          setZoomLevel(1);
           canvas.renderAll();
         }
       };
-      
+
       // Start animation
       requestAnimationFrame(animateZoom);
     }
-    
+
     // Update ref for next render
     prevProjectsPanelRef.current = showProjectsPanel;
   }, [showProjectsPanel, canvas, zoom]);
@@ -489,7 +491,7 @@ const CanvasEditor = () => {
     };
 
     canvas.on('object:modified', handleChange);
-    
+
     return () => {
       canvas.off('object:modified', handleChange);
     };
@@ -499,137 +501,11 @@ const CanvasEditor = () => {
   // This also needs to re-run on canvas changes when panel is open
   const extractToolPaths = useCallback(() => {
     if (!canvas) return;
-    
-    const objects = canvas.getObjects();
-    const paths: ToolPath[] = [];
 
+    const objects = canvas.getObjects();
     console.log('Extracting toolpaths from', objects.length, 'objects');
 
-    objects.forEach((obj, index) => {
-      // Get object type and generate path data accordingly
-      const objType = obj.type;
-      let pathPoints: PathPoint[] = [];
-      
-      console.log('Processing object:', objType, obj);
-      
-      if (objType === 'rect') {
-        // Handle rectangles - create path from corners
-        const rect = obj as any;
-        const left = rect.left || 0;
-        const top = rect.top || 0;
-        const width = (rect.width || 0) * (rect.scaleX || 1);
-        const height = (rect.height || 0) * (rect.scaleY || 1);
-        
-        pathPoints = [
-          { x: left, y: top, type: 'rapid' },
-          { x: left + width, y: top, type: 'linear' },
-          { x: left + width, y: top + height, type: 'linear' },
-          { x: left, y: top + height, type: 'linear' },
-          { x: left, y: top, type: 'linear' }, // Close path
-        ];
-      } else if (objType === 'circle' || objType === 'ellipse') {
-        // Handle circles/ellipses - approximate with segments
-        const ellipse = obj as any;
-        const cx = ellipse.left || 0;
-        const cy = ellipse.top || 0;
-        const rx = ((ellipse.rx || ellipse.radius || 0) * (ellipse.scaleX || 1));
-        const ry = ((ellipse.ry || ellipse.radius || 0) * (ellipse.scaleY || 1));
-        const segments = 36;
-        
-        for (let i = 0; i <= segments; i++) {
-          const angle = (i / segments) * Math.PI * 2;
-          const x = cx + rx + Math.cos(angle) * rx;
-          const y = cy + ry + Math.sin(angle) * ry;
-          pathPoints.push({ x, y, type: i === 0 ? 'rapid' : 'linear' });
-        }
-      } else if (objType === 'line') {
-        // Handle lines
-        const line = obj as any;
-        const x1 = (line.x1 || 0) + (line.left || 0);
-        const y1 = (line.y1 || 0) + (line.top || 0);
-        const x2 = (line.x2 || 0) + (line.left || 0);
-        const y2 = (line.y2 || 0) + (line.top || 0);
-        
-        pathPoints = [
-          { x: x1, y: y1, type: 'rapid' },
-          { x: x2, y: y2, type: 'linear' },
-        ];
-      } else if (objType === 'polygon') {
-        // Handle polygons
-        const polygon = obj as any;
-        const points = polygon.points || [];
-        const left = polygon.left || 0;
-        const top = polygon.top || 0;
-        
-        points.forEach((pt: any, i: number) => {
-          pathPoints.push({
-            x: pt.x + left,
-            y: pt.y + top,
-            type: i === 0 ? 'rapid' : 'linear',
-          });
-        });
-        if (points.length > 0) {
-          pathPoints.push({
-            x: points[0].x + left,
-            y: points[0].y + top,
-            type: 'linear',
-          });
-        }
-      } else if (objType === 'path') {
-        // Handle paths (drawn lines, pen tool, etc)
-        const path = obj as any;
-        const pathData = path.path;
-        if (pathData && Array.isArray(pathData)) {
-          const left = path.left || 0;
-          const top = path.top || 0;
-          pathData.forEach((cmd: any[], i: number) => {
-            if (cmd[0] === 'M' || cmd[0] === 'L') {
-              pathPoints.push({
-                x: cmd[1] + left,
-                y: cmd[2] + top,
-                type: i === 0 ? 'rapid' : 'linear',
-              });
-            } else if (cmd[0] === 'Q' && cmd.length >= 5) {
-              // Quadratic curve - just use endpoint
-              pathPoints.push({
-                x: cmd[3] + left,
-                y: cmd[4] + top,
-                type: 'linear',
-              });
-            } else if (cmd[0] === 'C' && cmd.length >= 7) {
-              // Cubic curve - just use endpoint
-              pathPoints.push({
-                x: cmd[5] + left,
-                y: cmd[6] + top,
-                type: 'linear',
-              });
-            }
-          });
-        }
-      } else {
-        // Fallback to SVG path extraction
-        const pathData = obj.toSVG?.();
-        if (pathData) {
-          const pathMatch = pathData.match(/d="([^"]+)"/);
-          if (pathMatch) {
-            pathPoints = pathToPoints(pathMatch[1], 1);
-          }
-        }
-      }
-      
-      console.log('Generated', pathPoints.length, 'points for', objType);
-      
-      if (pathPoints.length > 0) {
-        paths.push({
-          id: `path-${index}`,
-          name: `${objType || 'Object'} ${index + 1}`,
-          type: 'profile',
-          points: pathPoints,
-          depth: 3,
-          color: '#00ff00',
-        });
-      }
-    });
+    const paths = extractToolPathsFromObjects(objects);
 
     console.log('Total toolpaths:', paths.length);
     setToolPaths(paths);
@@ -640,13 +516,13 @@ const CanvasEditor = () => {
     if ((showGCodePanel || showMobileSimulation) && canvas) {
       // Extract immediately
       extractToolPaths();
-      
+
       // Also listen for changes while panel is open
       const handleChange = () => extractToolPaths();
       canvas.on('object:added', handleChange);
       canvas.on('object:removed', handleChange);
       canvas.on('object:modified', handleChange);
-      
+
       return () => {
         canvas.off('object:added', handleChange);
         canvas.off('object:removed', handleChange);
@@ -745,20 +621,24 @@ const CanvasEditor = () => {
           {/* Canvas container - takes all available space */}
           <div className="flex-1 canvas-container relative flex items-center justify-center overflow-hidden" style={{ touchAction: 'none' }}>
             <canvas ref={canvasRef} className="max-w-full max-h-full" style={{ touchAction: 'none' }} />
-            
+
             {/* SVG trace overlay */}
             {svgContent && showSvgOverlay && hasImage && (
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center" style={{ mixBlendMode: "normal" }}>
                 <div dangerouslySetInnerHTML={{ __html: svgContent }} className="max-w-full max-h-full w-full h-full [&_svg]:w-full [&_svg]:h-full" style={{ width: canvas?.getWidth(), height: canvas?.getHeight() }} />
               </div>
             )}
-            
+
             {/* Inline 3D Extrude Panel */}
-            <Inline3DExtrude 
-              isVisible={show3DPanel} 
-              onClose={() => setShow3DPanel(false)}
-              canvas={canvas}
-            />
+            <Suspense fallback={null}>
+              {show3DPanel && (
+                <Inline3DExtrude
+                  isVisible={show3DPanel}
+                  onClose={() => setShow3DPanel(false)}
+                  canvas={canvas}
+                />
+              )}
+            </Suspense>
 
             {/* History Panel */}
             <HistoryPanel
@@ -773,31 +653,7 @@ const CanvasEditor = () => {
               canRedo={canRedo}
             />
 
-            {/* Top buttons - History and Projects */}
-            {!showHistoryPanel && (
-              <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
-                <Button
-                  variant="toolbar"
-                  size="icon"
-                  className="w-10 h-10 glass border border-panel-border"
-                  onClick={() => setShowProjectsPanel(true)}
-                >
-                  <FolderOpen className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="toolbar"
-                  size="icon"
-                  className="w-10 h-10 glass border border-panel-border"
-                  onClick={() => setShowHistoryPanel(true)}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                    <path d="M3 3v5h5" />
-                    <path d="M12 7v5l4 2" />
-                  </svg>
-                </Button>
-              </div>
-            )}
+
 
 
             {/* Interactive drawing mode indicator */}
@@ -823,7 +679,7 @@ const CanvasEditor = () => {
           {/* Spacer for fixed bottom toolbar */}
           <div className="h-32 shrink-0" />
         </main>
-        
+
         {/* Fixed Bottom Toolbar */}
         <DrawingToolbar
           activeTool={activeTool}
@@ -857,29 +713,65 @@ const CanvasEditor = () => {
           onToggleLayers={() => setShowLayersPanel(!showLayersPanel)}
           showLayersPanel={showLayersPanel}
           onToggleProjects={() => setShowProjectsPanel(!showProjectsPanel)}
+          onToggleHistory={() => setShowHistoryPanel(!showHistoryPanel)}
+
+          stroke={stroke}
+          fill={fill}
+          textStyle={textStyle}
+          imageFilter={imageFilter}
+          traceSettings={traceSettings}
+          onStrokeChange={handleStrokeChange}
+          onFillChange={handleFillChange}
+          onTextStyleChange={handleTextStyleChange}
+          onImageFilterChange={handleImageFilterChange}
+          onTraceSettingsChange={setTraceSettings}
         />
 
-        {/* Right Sidebar - Layers Panel */}
+        {/* Mobile Layers Panel Overlay */}
+        {showLayersPanel && isMobile && (
+          <div className="absolute inset-0 z-50 lg:hidden flex justify-end">
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-sm" onClick={() => setShowLayersPanel(false)} />
+            <div className="relative w-72 h-full bg-background/95 border-l border-border animate-slide-left flex flex-col pt-4 pb-20">
+              <div className="flex items-center justify-between px-4 pb-2 border-b border-border">
+                <span className="font-semibold">Layers</span>
+                <Button variant="ghost" size="icon" onClick={() => setShowLayersPanel(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <LayersPanel
+                  canvas={canvas}
+                  projectName={projects.find(p => p.id === activeProjectId)?.name || "Untitled Project"}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Right Sidebar - Layers Panel (Desktop) */}
         <aside className={cn("hidden lg:flex flex-col border-l border-panel-border overflow-hidden transition-all duration-300", showLayersPanel ? "w-72" : "w-0")}>
           {showLayersPanel && (
-            <LayersPanel layers={layers} groups={groups} activeLayerId={activeLayerId} onLayersChange={setLayers} onGroupsChange={setGroups} onActiveLayerChange={setActiveLayerId} onDeleteLayer={handleDeleteLayer} />
+            <LayersPanel
+              canvas={canvas}
+              projectName={projects.find(p => p.id === activeProjectId)?.name || "Untitled Project"}
+            />
           )}
         </aside>
       </div>
 
       {/* G-code toolpath overlay - FIXED position for mobile visibility */}
       {simulationState.showOverlay && showGCodePanel && toolPaths.length > 0 && (
-        <div 
+        <div
           className="fixed inset-0 z-[200] pointer-events-none"
-          style={{ 
-            top: 0, 
-            left: 0, 
-            right: 0, 
+          style={{
+            top: 0,
+            left: 0,
+            right: 0,
             bottom: 0,
           }}
         >
           {/* Touch layer for pause/resume - only in center area */}
-          <div 
+          <div
             className="absolute inset-0 flex items-center justify-center pointer-events-auto"
             onTouchStart={(e) => {
               if (e.touches.length === 1) {
@@ -916,20 +808,26 @@ const CanvasEditor = () => {
       )}
 
       <ImageUploadDialog open={showImageUpload} onOpenChange={setShowImageUpload} onFileSelect={handleFileSelect} />
-      <GCodeDialog 
-        open={showGCodePanel} 
-        onOpenChange={setShowGCodePanel} 
-        canvas={canvas}
-        onSimulationChange={handleSimulationChange}
-      />
+      <Suspense fallback={null}>
+        {showGCodePanel && (
+          <GCodeDialog
+            open={showGCodePanel}
+            onOpenChange={setShowGCodePanel}
+            canvas={canvas}
+            onSimulationChange={handleSimulationChange}
+          />
+        )}
 
-      {/* Mobile Simulation Player */}
-      <MobileSimulationPlayer
-        isVisible={showMobileSimulation}
-        onClose={() => setShowMobileSimulation(false)}
-        toolPaths={toolPaths}
-        onSimulationChange={handleSimulationChange}
-      />
+        {/* Mobile Simulation Player */}
+        {showMobileSimulation && (
+          <MobileSimulationPlayer
+            isVisible={showMobileSimulation}
+            onClose={() => setShowMobileSimulation(false)}
+            toolPaths={toolPaths}
+            onSimulationChange={handleSimulationChange}
+          />
+        )}
+      </Suspense>
 
       {/* Projects Panel */}
       <ProjectsPanel

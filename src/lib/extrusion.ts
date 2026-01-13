@@ -1,5 +1,17 @@
 // 3D Extrusion Types and Utilities
 
+
+import { Shape } from "three";
+
+export interface CanvasShapeData {
+  id: string;
+  name: string;
+  type: string;
+  shape: Shape;
+  color: string;
+  position: { x: number; y: number };
+}
+
 export interface ExtrusionSettings {
   depth: number;
   bevelEnabled: boolean;

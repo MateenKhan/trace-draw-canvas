@@ -82,17 +82,17 @@ export function generateGCode(
   lines.push(`(Tool: ${tool.diameter}mm ${tool.type})`);
   lines.push(`(Feed: ${cutting.feedRate}mm/min, Plunge: ${cutting.plungeRate}mm/min)`);
   lines.push('');
-  
+
   // Setup
   lines.push(units === 'mm' ? 'G21' : 'G20'); // Units
   lines.push(absoluteMode ? 'G90' : 'G91'); // Absolute/Incremental
   lines.push('G17'); // XY plane
   lines.push(`G0 Z${cutting.safeHeight.toFixed(3)}`); // Safe height
-  
+
   if (coolant) {
     lines.push('M8'); // Coolant on
   }
-  
+
   lines.push(`M3 S${cutting.spindleSpeed}`); // Spindle on
   lines.push('G4 P2'); // Dwell 2 seconds for spindle
   lines.push('');
@@ -100,16 +100,16 @@ export function generateGCode(
   // Generate paths
   for (const path of toolPaths) {
     lines.push(`(${path.name} - ${path.type})`);
-    
+
     const passes = Math.ceil(path.depth / cutting.depthPerPass);
-    
+
     for (let pass = 1; pass <= passes; pass++) {
       const currentDepth = Math.min(pass * cutting.depthPerPass, path.depth);
       lines.push(`(Pass ${pass}/${passes} at Z${-currentDepth.toFixed(3)})`);
-      
+
       for (let i = 0; i < path.points.length; i++) {
         const point = path.points[i];
-        
+
         if (i === 0) {
           // Rapid to start position
           lines.push(`G0 X${point.x.toFixed(3)} Y${point.y.toFixed(3)}`);
@@ -124,11 +124,11 @@ export function generateGCode(
           }
         }
       }
-      
+
       // Retract after pass
       lines.push(`G0 Z${cutting.safeHeight.toFixed(3)}`);
     }
-    
+
     lines.push('');
   }
 
@@ -140,7 +140,7 @@ export function generateGCode(
   lines.push(`G0 Z${cutting.rapidHeight.toFixed(3)}`);
   lines.push('G0 X0 Y0'); // Return home
   lines.push('M30'); // Program end
-  
+
   return lines.join('\n');
 }
 
@@ -148,43 +148,43 @@ export function generateGCode(
 export function pathToPoints(pathData: string, scale: number = 1): PathPoint[] {
   const points: PathPoint[] = [];
   const commands = pathData.match(/[A-Za-z][^A-Za-z]*/g) || [];
-  
+
   let currentX = 0;
   let currentY = 0;
-  
+
   for (const cmd of commands) {
     const type = cmd[0];
     const args = cmd.slice(1).trim().split(/[\s,]+/).map(Number);
-    
+
     switch (type.toUpperCase()) {
       case 'M': // Move to
         currentX = args[0] * scale;
         currentY = args[1] * scale;
         points.push({ x: currentX, y: currentY, type: 'rapid' });
         break;
-        
+
       case 'L': // Line to
         currentX = args[0] * scale;
         currentY = args[1] * scale;
         points.push({ x: currentX, y: currentY, type: 'linear' });
         break;
-        
+
       case 'H': // Horizontal line
         currentX = args[0] * scale;
         points.push({ x: currentX, y: currentY, type: 'linear' });
         break;
-        
+
       case 'V': // Vertical line
         currentY = args[0] * scale;
         points.push({ x: currentX, y: currentY, type: 'linear' });
         break;
-        
+
       case 'Z': // Close path
         if (points.length > 0) {
           points.push({ ...points[0], type: 'linear' });
         }
         break;
-        
+
       // Simplify curves to line segments
       case 'C': // Cubic bezier
       case 'Q': // Quadratic bezier
@@ -203,7 +203,7 @@ export function pathToPoints(pathData: string, scale: number = 1): PathPoint[] {
         break;
     }
   }
-  
+
   return points;
 }
 
@@ -214,11 +214,11 @@ export function estimateMachiningTime(
 ): number {
   let totalDistance = 0;
   let totalPlunges = 0;
-  
+
   for (const path of toolPaths) {
     const passes = Math.ceil(path.depth / settings.cutting.depthPerPass);
     totalPlunges += passes;
-    
+
     for (let i = 1; i < path.points.length; i++) {
       const p1 = path.points[i - 1];
       const p2 = path.points[i];
@@ -227,10 +227,139 @@ export function estimateMachiningTime(
       ) * passes;
     }
   }
-  
+
   const cuttingTime = totalDistance / settings.cutting.feedRate;
   const plungeTime = (totalPlunges * settings.cutting.totalDepth) / settings.cutting.plungeRate;
   const rapidTime = totalPlunges * settings.cutting.safeHeight * 2 / 3000; // Assume 3000mm/min rapid
-  
+
   return cuttingTime + plungeTime + rapidTime; // in minutes
+}
+
+// Extract toolpaths from fabric objects
+export function extractToolPathsFromObjects(objects: any[]): ToolPath[] {
+  const paths: ToolPath[] = [];
+
+  objects.forEach((obj, index) => {
+    // Get object type and generate path data accordingly
+    const objType = obj.type;
+    let pathPoints: PathPoint[] = [];
+
+    if (objType === 'rect') {
+      // Handle rectangles - create path from corners
+      const rect = obj;
+      const left = rect.left || 0;
+      const top = rect.top || 0;
+      const width = (rect.width || 0) * (rect.scaleX || 1);
+      const height = (rect.height || 0) * (rect.scaleY || 1);
+
+      pathPoints = [
+        { x: left, y: top, type: 'rapid' },
+        { x: left + width, y: top, type: 'linear' },
+        { x: left + width, y: top + height, type: 'linear' },
+        { x: left, y: top + height, type: 'linear' },
+        { x: left, y: top, type: 'linear' }, // Close path
+      ];
+    } else if (objType === 'circle' || objType === 'ellipse') {
+      // Handle circles/ellipses - approximate with segments
+      const ellipse = obj;
+      const cx = ellipse.left || 0;
+      const cy = ellipse.top || 0;
+      const rx = ((ellipse.rx || ellipse.radius || 0) * (ellipse.scaleX || 1));
+      const ry = ((ellipse.ry || ellipse.radius || 0) * (ellipse.scaleY || 1));
+      const segments = 36;
+
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const x = cx + rx + Math.cos(angle) * rx;
+        const y = cy + ry + Math.sin(angle) * ry;
+        pathPoints.push({ x, y, type: i === 0 ? 'rapid' : 'linear' });
+      }
+    } else if (objType === 'line') {
+      // Handle lines
+      const line = obj;
+      const x1 = (line.x1 || 0) + (line.left || 0);
+      const y1 = (line.y1 || 0) + (line.top || 0);
+      const x2 = (line.x2 || 0) + (line.left || 0);
+      const y2 = (line.y2 || 0) + (line.top || 0);
+
+      pathPoints = [
+        { x: x1, y: y1, type: 'rapid' },
+        { x: x2, y: y2, type: 'linear' },
+      ];
+    } else if (objType === 'polygon') {
+      // Handle polygons
+      const polygon = obj;
+      const points = polygon.points || [];
+      const left = polygon.left || 0;
+      const top = polygon.top || 0;
+
+      points.forEach((pt: any, i: number) => {
+        pathPoints.push({
+          x: pt.x + left,
+          y: pt.y + top,
+          type: i === 0 ? 'rapid' : 'linear',
+        });
+      });
+      if (points.length > 0) {
+        pathPoints.push({
+          x: points[0].x + left,
+          y: points[0].y + top,
+          type: 'linear',
+        });
+      }
+    } else if (objType === 'path') {
+      // Handle paths (drawn lines, pen tool, etc)
+      const path = obj;
+      const pathData = path.path;
+      if (pathData && Array.isArray(pathData)) {
+        const left = path.left || 0;
+        const top = path.top || 0;
+        pathData.forEach((cmd: any[], i: number) => {
+          if (cmd[0] === 'M' || cmd[0] === 'L') {
+            pathPoints.push({
+              x: cmd[1] + left,
+              y: cmd[2] + top,
+              type: i === 0 ? 'rapid' : 'linear',
+            });
+          } else if (cmd[0] === 'Q' && cmd.length >= 5) {
+            // Quadratic curve - just use endpoint
+            pathPoints.push({
+              x: cmd[3] + left,
+              y: cmd[4] + top,
+              type: 'linear',
+            });
+          } else if (cmd[0] === 'C' && cmd.length >= 7) {
+            // Cubic curve - just use endpoint
+            pathPoints.push({
+              x: cmd[5] + left,
+              y: cmd[6] + top,
+              type: 'linear',
+            });
+          }
+        });
+      }
+    } else {
+      // Fallback to SVG path extraction
+      const pathData = obj.toSVG?.();
+      if (pathData) {
+        const pathMatch = pathData.match(/d="([^"]+)"/);
+        if (pathMatch) {
+          pathPoints = pathToPoints(pathMatch[1], 1);
+        }
+      }
+    }
+
+    if (pathPoints.length > 0) {
+      paths.push({
+        id: `path-${index}`,
+        name: `${objType || 'Object'} ${index + 1}`,
+        type: 'profile',
+        points: pathPoints,
+        depth: 3,
+        color: '#00ff00',
+      });
+    }
+  });
+
+  return paths;
 }

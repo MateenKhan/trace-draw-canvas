@@ -15,9 +15,10 @@ interface ExportMenuProps {
   canvas: FabricCanvas | null;
   svgContent: string | null;
   disabled?: boolean;
+  trigger?: React.ReactNode;
 }
 
-export const ExportMenu = ({ canvas, svgContent, disabled }: ExportMenuProps) => {
+export const ExportMenu = ({ canvas, svgContent, disabled, trigger }: ExportMenuProps) => {
   // Export as PNG
   const exportPNG = useCallback(() => {
     if (!canvas) return;
@@ -137,15 +138,19 @@ export const ExportMenu = ({ canvas, svgContent, disabled }: ExportMenuProps) =>
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="panel"
-          size="sm"
-          disabled={disabled}
-          className="gap-1.5 md:gap-2 font-mono text-[10px] md:text-xs h-8 md:h-9 px-2 md:px-3"
-        >
-          <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          <span className="hidden sm:inline">Export</span>
-        </Button>
+        {trigger ? (
+          trigger
+        ) : (
+          <Button
+            variant="panel"
+            size="sm"
+            disabled={disabled}
+            className="gap-1.5 md:gap-2 font-mono text-[10px] md:text-xs h-8 md:h-9 px-2 md:px-3"
+          >
+            <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span className="hidden sm:inline">Export</span>
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem onClick={exportPNG} className="gap-2">
@@ -177,12 +182,12 @@ function downloadFile(url: string, filename: string) {
   link.href = url;
   link.download = filename;
   link.style.display = 'none';
-  
+
   // Check for iOS Safari or in-app browsers
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
   const isInAppBrowser = /FBAN|FBAV|Instagram|Twitter|Line|WeChat|MicroMessenger/i.test(navigator.userAgent);
-  
+
   if (isIOS && (isSafari || isInAppBrowser)) {
     // For iOS Safari and in-app browsers, open in new tab
     // User can then long-press to save
@@ -197,10 +202,10 @@ function downloadFile(url: string, filename: string) {
     }
     return;
   }
-  
+
   // Standard download for other browsers
   document.body.appendChild(link);
-  
+
   // Use setTimeout to ensure the download triggers on mobile
   setTimeout(() => {
     link.click();
