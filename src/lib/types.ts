@@ -1,5 +1,5 @@
 // Tool types for the canvas editor
-export type DrawingTool = 
+export type DrawingTool =
   | 'select'
   | 'pan'
   | 'pen'
@@ -9,6 +9,7 @@ export type DrawingTool =
   | 'ellipse'
   | 'polygon'
   | 'text'
+  | 'spline'
   | 'crop'
   | 'transform';
 
