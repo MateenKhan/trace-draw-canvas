@@ -98,6 +98,16 @@
     box-shadow: var(--shadow-lg), inset 0 1px 0 hsl(220 14% 30% / 0.2);
   }
 
+  /* Utility to hide scrollbars but keep functionality */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
   }
@@ -232,13 +242,56 @@
   }
 
   @keyframes border-run {
+    0% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  /* Rapid solid line walking animation */
+  @keyframes border-walk {
     from {
       background-position: 0 0, 100% 100%, 0 100%, 100% 0;
     }
 
     to {
-      background-position: 100% 100%, 0 0, 100% 0, 0 100%;
+      background-position: 100% 0, 0% 100%, 0% 0%, 100% 100%;
     }
+  }
+
+  @keyframes slideUpLocal {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-up-local {
+    animation: slideUpLocal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes pulse-neon {
+
+    0%,
+    100% {
+      box-shadow: 0 0 5px hsl(var(--primary) / 0.5), inset 0 0 5px hsl(var(--primary) / 0.5);
+    }
+
+    50% {
+      box-shadow: 0 0 15px hsl(var(--primary) / 0.8), inset 0 0 10px hsl(var(--primary) / 0.8);
+    }
+  }
+
+  .animate-pulse-neon {
+    animation: pulse-neon 1.5s ease-in-out infinite;
   }
 
   .running-border {
@@ -248,7 +301,7 @@
   .running-border::after {
     content: '';
     position: absolute;
-    inset: 0;
+    inset: 0px;
     padding: 2px;
     border-radius: inherit;
     background:
@@ -256,9 +309,9 @@
       linear-gradient(90deg, hsl(var(--primary)) 50%, transparent 50%) repeat-x,
       linear-gradient(0deg, hsl(var(--primary)) 50%, transparent 50%) repeat-y,
       linear-gradient(0deg, hsl(var(--primary)) 50%, transparent 50%) repeat-y;
-    background-size: 8px 1px, 8px 1px, 1px 8px, 1px 8px;
+    background-size: 15px 2px, 15px 2px, 2px 15px, 2px 15px;
     background-position: 0 0, 0 100%, 0 0, 100% 0;
-    animation: border-run 1s linear infinite;
+    animation: border-run 300ms ease-out forwards, border-walk 0.8s linear infinite;
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
       linear-gradient(#fff 0 0);
@@ -284,6 +337,23 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--muted));
     border-radius: 3px;
+  }
+
+  .custom-horizontal-scrollbar::-webkit-scrollbar {
+    height: 3px;
+  }
+
+  .custom-horizontal-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.5);
+    border-radius: 10px;
+  }
+
+  .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
   }
 
   /* Safe area padding for iOS */

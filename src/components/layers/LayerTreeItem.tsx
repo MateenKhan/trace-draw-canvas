@@ -10,10 +10,11 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LayerNodeData } from "@/lib/layer-tree";
 import { FabricObject } from "fabric";
 import { ShapeItem } from "./ShapeItem";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 
 interface LayerTreeItemProps {
     node: LayerNodeData;
@@ -22,6 +23,7 @@ interface LayerTreeItemProps {
     onCreateNode: (parentId: string, type: 'project' | 'layer') => void;
     onDeleteNode: (id: string) => void;
     onRenameNode: (id: string, name: string) => void;
+    onMoveNode: (id: string, direction: 'up' | 'down') => void;
     objects: FabricObject[]; // Objects belonging to this node
     children?: React.ReactNode;
     // Shape handlers
@@ -32,6 +34,10 @@ interface LayerTreeItemProps {
     onDeleteObject: (obj: FabricObject) => void;
     onDuplicateObject: (obj: FabricObject) => void;
     onRenameObject: (obj: FabricObject, name: string) => void;
+    isSelected?: boolean;
+    onToggleSelect?: () => void;
+    isNodeVisible?: boolean;
+    isHighlighted?: boolean;
     lastDroppedId: string | null;
     lastOriginId: string | null;
 }
@@ -43,6 +49,7 @@ export const LayerTreeItem = ({
     onCreateNode,
     onDeleteNode,
     onRenameNode,
+    onMoveNode,
     objects,
     children,
     // Shape props
@@ -53,6 +60,10 @@ export const LayerTreeItem = ({
     onDeleteObject,
     onDuplicateObject,
     onRenameObject,
+    isSelected,
+    onToggleSelect,
+    isNodeVisible = true,
+    isHighlighted = false,
     lastDroppedId,
     lastOriginId
 }: LayerTreeItemProps) => {
@@ -73,6 +84,18 @@ export const LayerTreeItem = ({
     // Rename State
     const [isEditing, setIsEditing] = useState(false);
     const [editingName, setEditingName] = useState(node.name);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isEditing) {
+            // Tiny delay ensures DOM is ready and helps trigger keyboard on some mobile browsers
+            const timer = setTimeout(() => {
+                inputRef.current?.focus();
+                inputRef.current?.select();
+            }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isEditing]);
 
     // Actions State
     const [swipeX, setSwipeX] = useState(0);
@@ -82,23 +105,6 @@ export const LayerTreeItem = ({
     const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
     const Icon = node.type === 'project' ? FolderKanban : Layers;
-
-    // Helper visibility toggle
-    const handleToggleVisibility = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        // Since nodes don't have intrinsic "visible" prop in current data structure,
-        // we might need to update state to track visibility or just toggle children objects.
-        // For simplicity, let's toggle all children objects.
-        objects.forEach(obj => {
-            obj.visible = !obj.visible;
-        });
-        // We really should update the node state or propagate event, but user asked for icon functionality.
-        // If we want persistent state, we need to update tree. but tree doesn't track visibility.
-        // Let's assume we just trigger a re-render of objects.
-        onSelectObject(objects[0]); // Hack to force canvas render or just use onToggleVisibility on first object...
-        // Better:
-        // We need a parent handler for this. But let's leave it for now as "toggle current objects"
-    };
 
     const startRename = () => {
         setIsEditing(true);
@@ -220,6 +226,7 @@ export const LayerTreeItem = ({
                 <div
                     className={cn(
                         "group flex items-center gap-1 p-1.5 rounded-md bg-background hover:bg-accent/5 select-none relative z-10",
+                        isHighlighted && "ring-2 ring-primary animate-pulse-neon shadow-glow"
                     )}
                     style={{ transform: `translateX(${swipeX}px)` }}
                     onPointerDown={handlePointerDown}
@@ -228,9 +235,16 @@ export const LayerTreeItem = ({
                     onPointerCancel={handlePointerUp}
                 >
                     {/* Explicit Drag Handle */}
-                    <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 -ml-1 text-muted-foreground/50 hover:text-foreground touch-none">
+                    <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 -ml-1 text-muted-foreground/50 hover:text-foreground touch-none shrink-0">
                         <GripVertical className="w-3.5 h-3.5" />
                     </div>
+
+                    <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={onToggleSelect}
+                        className="h-3.5 w-3.5 ml-1 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                    />
 
                     {/* Collapse Toggle */}
                     <Button
@@ -250,12 +264,12 @@ export const LayerTreeItem = ({
 
                         {isEditing ? (
                             <Input
+                                ref={inputRef}
                                 value={editingName}
                                 onChange={(e) => setEditingName(e.target.value)}
                                 onBlur={finishRename}
                                 onKeyDown={(e) => e.key === "Enter" && finishRename()}
                                 className="h-6 text-xs px-1"
-                                autoFocus
                                 onClick={(e) => e.stopPropagation()}
                             />
                         ) : (
@@ -270,10 +284,14 @@ export const LayerTreeItem = ({
                             variant="ghost"
                             size="icon"
                             className="w-5 h-5"
-                            onClick={handleToggleVisibility}
+                            onClick={(e) => { e.stopPropagation(); onToggleVisibility(objects[0]); }}
                             title="Toggle Visibility"
                         >
-                            <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                            {isNodeVisible ? (
+                                <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                            ) : (
+                                <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+                            )}
                         </Button>
                     </div>
 
@@ -293,6 +311,12 @@ export const LayerTreeItem = ({
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={startRename}>
                                 <Pencil className="w-4 h-4 mr-2" /> Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onMoveNode(node.id, 'up')}>
+                                <ChevronRight className="w-4 h-4 mr-2 -rotate-90" /> Move Up
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onMoveNode(node.id, 'down')}>
+                                <ChevronRight className="w-4 h-4 mr-2 rotate-90" /> Move Down
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onDeleteNode(node.id)} className="text-destructive">
                                 <Trash2 className="w-4 h-4 mr-2" /> Delete

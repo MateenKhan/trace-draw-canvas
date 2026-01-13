@@ -792,17 +792,16 @@ const CanvasEditor = () => {
         {showLayersPanel && isMobile && (
           <div className="absolute inset-0 z-50 lg:hidden flex justify-end">
             <div className="absolute inset-0 bg-background/50 backdrop-blur-sm" onClick={() => setShowLayersPanel(false)} />
-            <div className="relative w-72 h-full bg-background/95 border-l border-border animate-slide-left flex flex-col pt-4 pb-20">
-              <div className="flex items-center justify-between px-4 pb-2 border-b border-border">
-                <span className="font-semibold">Layers</span>
-                <Button variant="ghost" size="icon" onClick={() => setShowLayersPanel(false)}>
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
+            <div className="relative w-72 h-full bg-background/95 border-l border-border animate-slide-left flex flex-col pt-0 pb-20">
               <div className="flex-1 overflow-hidden">
                 <LayersPanel
                   canvas={canvas}
                   projectName={projects.find(p => p.id === activeProjectId)?.name || "Untitled Project"}
+                  onClose={() => setShowLayersPanel(false)}
+                  onUndo={undo}
+                  onRedo={redo}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
                 />
               </div>
             </div>
@@ -815,6 +814,11 @@ const CanvasEditor = () => {
             <LayersPanel
               canvas={canvas}
               projectName={projects.find(p => p.id === activeProjectId)?.name || "Untitled Project"}
+              onClose={() => setShowLayersPanel(false)}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
             />
           )}
         </aside>

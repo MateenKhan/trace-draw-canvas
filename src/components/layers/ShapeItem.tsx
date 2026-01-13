@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,6 +22,7 @@ import {
     Trash2,
     MousePointer2,
     GripVertical,
+    ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +37,10 @@ interface ShapeItemProps {
     onDelete: () => void;
     onDuplicate: () => void;
     onRename: (name: string) => void;
+    onMove: (direction: 'up' | 'down') => void;
+    isSelected?: boolean;
+    onToggleSelect?: () => void;
+    isHighlighted?: boolean;
     isDropped?: boolean;
     isOrigin?: boolean;
 }
@@ -50,12 +56,27 @@ export const ShapeItem = memo(({
     onDelete,
     onDuplicate,
     onRename,
+    onMove,
+    isSelected,
+    onToggleSelect,
+    isHighlighted = false,
     isDropped,
     isOrigin,
 }: ShapeItemProps) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editingName, setEditingName] = useState("");
     const [name, setName] = useState((object as any).name || object.type);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isEditing) {
+            const timer = setTimeout(() => {
+                inputRef.current?.focus();
+                inputRef.current?.select();
+            }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isEditing]);
 
     // Use passed ID if available, otherwise fallback to object ID
     const sortableId = id || (object as any).id;
@@ -199,7 +220,8 @@ export const ShapeItem = memo(({
             <div
                 className={cn(
                     "relative flex items-center gap-1 p-1 bg-background border rounded-lg z-10 shadow-sm",
-                    isActive ? "border-primary/50 ring-1 ring-primary/20" : "border-transparent hover:bg-accent/5"
+                    isActive ? "border-primary/50 ring-1 ring-primary/20" : "border-transparent hover:bg-accent/5",
+                    isHighlighted && "ring-2 ring-primary animate-pulse-neon shadow-glow"
                 )}
                 style={{ transform: `translateX(${swipeX}px)` }}
                 onPointerDown={handlePointerDown}
@@ -208,10 +230,16 @@ export const ShapeItem = memo(({
                 onPointerCancel={handlePointerUp}
                 onClick={onSelect}
             >
-                {/* Drag Handle */}
-                <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 -ml-1 touch-none">
+                <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 -ml-1 touch-none shrink-0">
                     <GripVertical className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-foreground flex-shrink-0" />
                 </div>
+
+                <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={onToggleSelect}
+                    className="h-3.5 w-3.5 ml-1 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                />
 
                 {/* Icon based on type */}
                 <div className={cn(
@@ -225,12 +253,12 @@ export const ShapeItem = memo(({
                 <div className="flex-1 min-w-0 ml-1">
                     {isEditing ? (
                         <Input
+                            ref={inputRef}
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}
                             onBlur={finishRename}
                             onKeyDown={(e) => e.key === "Enter" && finishRename()}
                             className="h-6 text-xs px-1"
-                            autoFocus
                             onClick={(e) => e.stopPropagation()}
                         />
                     ) : (
@@ -277,6 +305,14 @@ export const ShapeItem = memo(({
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); startRename(); }}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMove('up'); }}>
+                            <ChevronRight className="w-4 h-4 mr-2 -rotate-90" />
+                            Move Up
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMove('down'); }}>
+                            <ChevronRight className="w-4 h-4 mr-2 rotate-90" />
+                            Move Down
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDuplicate(); }}>
                             <Copy className="w-4 h-4 mr-2" />
