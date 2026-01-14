@@ -240,6 +240,9 @@ export function extractToolPathsFromObjects(objects: any[]): ToolPath[] {
   const paths: ToolPath[] = [];
 
   objects.forEach((obj, index) => {
+    // Skip helper objects (spline nodes, handles, etc)
+    if ((obj as any).isHelper) return;
+
     // Get object type and generate path data accordingly
     const objType = obj.type;
     let pathPoints: PathPoint[] = [];

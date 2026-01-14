@@ -1,9 +1,9 @@
 import { useCallback, useRef, useEffect, useState } from "react";
-import { 
-  Canvas as FabricCanvas, 
-  Rect, 
-  Circle, 
-  Line, 
+import {
+  Canvas as FabricCanvas,
+  Rect,
+  Circle,
+  Line,
   Polygon,
   FabricObject
 } from "fabric";
@@ -47,18 +47,18 @@ export const useMobileDrawing = ({
   // Get canvas-relative coordinates from touch/mouse event
   const getCanvasCoords = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
     if (!canvas) return null;
-    
+
     const canvasEl = canvas.getElement();
     const rect = canvasEl.getBoundingClientRect();
     const zoom = canvas.getZoom();
     const vpt = canvas.viewportTransform;
-    
+
     if (!vpt) return null;
-    
+
     // Account for zoom and pan
     const x = (clientX - rect.left - vpt[4]) / zoom;
     const y = (clientY - rect.top - vpt[5]) / zoom;
-    
+
     return { x, y };
   }, [canvas]);
 
@@ -140,7 +140,7 @@ export const useMobileDrawing = ({
     if (!state.isDrawing || !state.currentShape || !canvas) return;
 
     const { startX, startY, currentShape } = state;
-    
+
     switch (activeTool) {
       case 'rectangle': {
         const rect = currentShape as Rect;
@@ -185,7 +185,7 @@ export const useMobileDrawing = ({
         const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
         const sides = 6;
         const points = [];
-        
+
         for (let i = 0; i < sides; i++) {
           const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
           points.push({
@@ -193,7 +193,7 @@ export const useMobileDrawing = ({
             y: radius * Math.sin(angle),
           });
         }
-        
+
         polygon.set({ points });
         polygon.set({
           left: startX - radius,
@@ -213,14 +213,14 @@ export const useMobileDrawing = ({
     if (!state.isDrawing || !state.currentShape || !canvas) return;
 
     const shape = state.currentShape;
-    
+
     // Make shape selectable
     shape.set({
       selectable: true,
       evented: true,
     });
     shape.setCoords();
-    
+
     // Select the new shape
     canvas.setActiveObject(shape);
     canvas.renderAll();
@@ -228,7 +228,7 @@ export const useMobileDrawing = ({
     // Reset state
     state.isDrawing = false;
     state.currentShape = null;
-    
+
     // Notify parent
     onShapeCreated?.();
   }, [canvas, onShapeCreated]);
@@ -240,7 +240,7 @@ export const useMobileDrawing = ({
 
     canvas.remove(state.currentShape);
     canvas.renderAll();
-    
+
     state.isDrawing = false;
     state.currentShape = null;
   }, [canvas]);
@@ -268,16 +268,16 @@ export const useMobileDrawing = ({
 
     // Get canvas coordinates helper
     const getCoords = (clientX: number, clientY: number): { x: number; y: number } | null => {
-      const canvasEl = canvas.getElement();
+      const canvasEl = canvas.upperCanvasEl || canvas.getElement();
       const rect = canvasEl.getBoundingClientRect();
       const zoom = canvas.getZoom();
       const vpt = canvas.viewportTransform;
-      
+
       if (!vpt) return null;
-      
+
       const x = (clientX - rect.left - vpt[4]) / zoom;
       const y = (clientY - rect.top - vpt[5]) / zoom;
-      
+
       return { x, y };
     };
 
@@ -305,7 +305,7 @@ export const useMobileDrawing = ({
     // Touch events (for mobile) - attach directly to canvas element
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
-      
+
       const touch = e.touches[0];
       const coords = getCoords(touch.clientX, touch.clientY);
       if (coords) {
@@ -317,13 +317,13 @@ export const useMobileDrawing = ({
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
-      
+
       // Check the ref state, not the stale closure value
       if (!drawStateRef.current.isDrawing) return;
-      
+
       e.preventDefault();
       e.stopPropagation();
-      
+
       const touch = e.touches[0];
       const coords = getCoords(touch.clientX, touch.clientY);
       if (coords) {
@@ -334,7 +334,7 @@ export const useMobileDrawing = ({
     const handleTouchEnd = (e: TouchEvent) => {
       // Check the ref state, not the stale closure value
       if (!drawStateRef.current.isDrawing) return;
-      
+
       e.preventDefault();
       e.stopPropagation();
       finishDrawing();
@@ -351,9 +351,9 @@ export const useMobileDrawing = ({
     canvas.on('mouse:move', handleMouseMove);
     canvas.on('mouse:up', handleMouseUp);
 
-    // Add touch events directly to canvas element (not wrapper)
-    const canvasEl = canvas.getElement();
-    
+    // Add touch events directly to upper canvas element
+    const canvasEl = canvas.upperCanvasEl || canvas.getElement();
+
     canvasEl.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvasEl.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvasEl.addEventListener('touchend', handleTouchEnd, { passive: false });

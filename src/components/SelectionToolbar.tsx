@@ -79,9 +79,10 @@ export const SelectionToolbar = ({
     const x = rect.left + bound.left * zoom + vpt[4] + (bound.width * zoom) / 2;
     const y = rect.top + bound.top * zoom + vpt[5] - 60;
 
-    // Ensure toolbar stays within viewport
-    const clampedX = Math.max(100, Math.min(x, window.innerWidth - 100));
-    const clampedY = Math.max(60, y);
+    // Ensure toolbar stays within viewport with safety margins
+    const margin = 12;
+    const clampedX = Math.max(margin + 50, Math.min(x, window.innerWidth - (margin + 50)));
+    const clampedY = Math.max(margin + 40, y);
 
     setPosition({ x: clampedX, y: clampedY });
   }, [canvas]);
@@ -160,11 +161,12 @@ export const SelectionToolbar = ({
 
   return (
     <div
-      className="fixed z-[100] flex items-center gap-1 p-1.5 glass rounded-xl border border-panel-border shadow-lg animate-in fade-in zoom-in-95 duration-150"
+      className="fixed z-[100] flex items-center gap-1 p-1.5 glass rounded-xl border border-panel-border shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-w-[calc(100vw-24px)] overflow-x-auto no-scrollbar"
       style={{
         left: position.x,
         top: position.y,
         transform: 'translateX(-50%)',
+        touchAction: 'pan-x'
       }}
     >
       {/* Color picker */}

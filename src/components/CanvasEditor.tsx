@@ -3,6 +3,7 @@ import { useCanvas } from "@/hooks/useCanvas";
 import { useDrawingTools } from "@/hooks/useDrawingTools";
 import { useImageEditing } from "@/hooks/useImageEditing";
 import { useMobileDrawing } from "@/hooks/useMobileDrawing";
+import { useSplineTool } from "@/hooks/useSplineTool";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DrawingToolbar } from "@/components/DrawingToolbar";
@@ -162,6 +163,14 @@ const CanvasEditor = () => {
     },
   });
 
+  // Spline tool hook
+  useSplineTool({
+    canvas,
+    activeTool,
+    stroke,
+    fill,
+  });
+
   // Handle tool change - modified to support both tap-to-place and drag-to-draw
   const handleToolChange = useCallback((tool: DrawingTool) => {
     setActiveTool(tool);
@@ -210,6 +219,9 @@ const CanvasEditor = () => {
       case 'text':
         addText();
         setActiveTool('select');
+        break;
+      case 'spline':
+        // Spline tool handles its own logic via hook
         break;
     }
   }, [activeTool, enableDrawingMode, enablePenMode, addRectangle, addEllipse, addLine, addPolygon, addText]);

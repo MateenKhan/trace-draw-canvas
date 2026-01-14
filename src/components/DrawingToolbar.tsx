@@ -31,6 +31,7 @@ import {
   Download,
   History,
   Menu,
+  Spline,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool, StrokeStyle, FillStyle, TextStyle, ImageFilter } from "@/lib/types";
@@ -241,6 +242,12 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
                     label="Pencil"
                     isActive={props.activeTool === 'pencil'}
                     onClick={() => props.onToolChange('pencil')}
+                  />
+                  <SubToolButton
+                    icon={Spline}
+                    label="Spline"
+                    isActive={props.activeTool === 'spline'}
+                    onClick={() => props.onToolChange('spline')}
                   />
                 </>
               )}

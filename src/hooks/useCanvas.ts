@@ -82,6 +82,9 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
         isPanning = true;
         lastDistance = getDistance(e.touches[0], e.touches[1]);
         lastCenter = getCenter(e.touches[0], e.touches[1]);
+      } else if (e.touches.length === 1 && fabricCanvas.isDrawingMode) {
+        // Prevent browser gestures from stealing the pointer during an active drawing stroke
+        e.preventDefault();
       }
     };
 

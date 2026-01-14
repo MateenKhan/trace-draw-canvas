@@ -26,6 +26,14 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { LayerTreeItem } from "@/components/layers/LayerTreeItem";
 import { ShapeItem } from "@/components/layers/ShapeItem";
 import { LayerTreeState, createInitialState, generateId, flattenTree } from "@/lib/layer-tree";
@@ -125,7 +133,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     if (!canvas) return;
 
     const syncLayers = () => {
-      const allObjects = [...canvas.getObjects()];
+      const allObjects = [...canvas.getObjects()].filter(obj => !(obj as any).isHelper);
       allObjects.forEach(obj => {
         if (!(obj as any).layerId) {
           (obj as any).layerId = activeNodeId && tree.nodes[activeNodeId] ? activeNodeId : 'layer_base';
@@ -253,7 +261,6 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     setActiveNodeId(newId);
     setHighlightId(newId);
     setTimeout(() => setHighlightId(null), 3000); // Clear highlight after 3s
-    toast.success(`${name} created`);
   };
 
   const handleDeleteNode = useCallback((id: string) => {
@@ -953,37 +960,69 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       </div>
 
       {/* Row 2: Search & Filter */}
-      <div className="p-2 border-b border-border/40 flex-shrink-0 space-y-2">
-        <div className="flex gap-1.5 items-center">
+      <div className="p-2 border-b border-border/40 flex-shrink-0">
+        <div className="flex gap-2 items-center">
           <div className="relative flex-1">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input className="h-8 pl-8 text-xs bg-muted/30 border-none focus-visible:ring-1 focus-visible:ring-primary/40" placeholder="Search layers..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <Input
+              className="h-8 pl-8 text-xs bg-muted/30 border-none focus-visible:ring-1 focus-visible:ring-primary/40"
+              placeholder="Search layers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
 
-          <div className="flex items-center gap-1">
-            {[
-              { id: 'rect', icon: Square, label: 'Squares' },
-              { id: 'circle', icon: Circle, label: 'Circles' },
-              { id: 'triangle', icon: TriangleIcon, label: 'Triangles' },
-              { id: 'i-text', icon: Type, label: 'Text' },
-              { id: 'image', icon: ImageIcon, label: 'Images' },
-              { id: 'path', icon: Pencil, label: 'Paths' },
-            ].map(f => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
-                key={f.id}
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "h-7 w-7 transition-all duration-200",
-                  typeFilter === f.id ? "bg-primary text-primary-foreground shadow-glow scale-110" : "text-muted-foreground hover:bg-accent"
+                  "h-8 w-8 transition-all duration-200 shrink-0",
+                  typeFilter ? "bg-primary text-primary-foreground shadow-glow" : "text-muted-foreground hover:bg-accent"
                 )}
-                onClick={() => setTypeFilter(typeFilter === f.id ? null : f.id)}
-                title={f.label}
+                title="Filter by shape"
               >
-                <f.icon className="w-3.5 h-3.5" />
+                <Filter className="w-4 h-4" />
               </Button>
-            ))}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40 bg-background/95 backdrop-blur-md border-border/40">
+              <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground tracking-tighter">Filter by shape</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-border/20" />
+              {[
+                { id: 'rect', icon: Square, label: 'Squares' },
+                { id: 'circle', icon: Circle, label: 'Circles' },
+                { id: 'triangle', icon: TriangleIcon, label: 'Triangles' },
+                { id: 'i-text', icon: Type, label: 'Text' },
+                { id: 'image', icon: ImageIcon, label: 'Images' },
+                { id: 'path', icon: Pencil, label: 'Paths' },
+              ].map(f => (
+                <DropdownMenuItem
+                  key={f.id}
+                  className={cn(
+                    "flex items-center gap-2 text-xs py-1.5 cursor-pointer",
+                    typeFilter === f.id ? "bg-primary/20 text-primary font-medium" : "text-muted-foreground"
+                  )}
+                  onClick={() => setTypeFilter(typeFilter === f.id ? null : f.id)}
+                >
+                  <f.icon className="w-3.5 h-3.5" />
+                  <span>{f.label}</span>
+                  {typeFilter === f.id && <div className="ml-auto w-1 h-1 rounded-full bg-primary animate-pulse" />}
+                </DropdownMenuItem>
+              ))}
+              {typeFilter && (
+                <>
+                  <DropdownMenuSeparator className="bg-border/20" />
+                  <DropdownMenuItem
+                    className="text-xs py-1.5 text-destructive hover:bg-destructive/10 cursor-pointer justify-center font-medium"
+                    onClick={() => setTypeFilter(null)}
+                  >
+                    Clear Filter
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {typeFilter && (
           <div className="flex items-center gap-2 px-1">
