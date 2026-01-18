@@ -1,52 +1,33 @@
-# Stage 1: Dependencies
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+# Stage 1: Build
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# Stage 2: Builder
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source code
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
-
-# Build the application
-ENV NEXT_TELEMETRY_DISABLED 1
+# Build the application (Vite produces 'dist' folder)
 RUN npm run build
 
-# Stage 3: Runner   
+# Stage 2: Runtime
 FROM node:20-alpine AS runner
 WORKDIR /app
 
+# Install 'serve' to host the static files
+RUN npm install -g serve
+
+# Copy built assets from builder stage
+COPY --from=builder /app/dist ./dist
+
+# Set environment variables
 ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV PORT 3011
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copy necessary files
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-
-# Set correct permissions
-RUN chown -R nextjs:nodejs /app
-
-USER nextjs
-
+# Expose port (Coolify expects this)
 EXPOSE 3011
 
-ENV PORT 3011
-ENV HOSTNAME "0.0.0.0"
-
-CMD ["node", "server.js"]
+# Start the static server (SPA mode with -s)
+CMD ["serve", "-s", "dist", "-l", "3011"]
