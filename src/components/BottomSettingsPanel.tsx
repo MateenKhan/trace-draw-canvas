@@ -85,7 +85,7 @@ export const BottomSettingsPanel = ({
     };
 
     return (
-        <div className="w-full max-h-[50vh] overflow-y-auto bg-background/95 backdrop-blur-md border-t border-panel-border shadow-2xl p-4 rounded-t-xl">
+        <div className="w-full max-h-[50vh] overflow-y-auto bg-background/10 backdrop-blur-xl border-t border-white/10 shadow-2xl p-4 rounded-t-xl">
             <Accordion type="single" collapsible className="w-full">
                 {/* Application Settings */}
                 <AccordionItem value="application">

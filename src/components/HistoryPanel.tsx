@@ -49,7 +49,7 @@ export const HistoryPanel = ({
   if (!isVisible) return null;
 
   return (
-    <div className="absolute top-4 right-4 z-50 w-72 glass rounded-2xl border border-panel-border shadow-xl animate-in slide-in-from-right-5 duration-200">
+    <div className="absolute top-4 right-4 z-50 w-72 bg-background/5 backdrop-blur-sm border border-white/10 rounded-2xl shadow-xl animate-in slide-in-from-right-5 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-panel-border">
         <div className="flex items-center gap-2">

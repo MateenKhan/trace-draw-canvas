@@ -246,7 +246,7 @@ export const LayerTreeItem = memo(({
                 {/* Node Header */}
                 <div
                     className={cn(
-                        "group flex items-center gap-2 py-1.5 pr-2 pl-0 rounded-md bg-background hover:bg-accent/5 select-none relative z-10 cursor-pointer active:bg-accent/10 transition-colors",
+                        "group flex items-center gap-2 py-1.5 pr-2 pl-0 rounded-md bg-transparent hover:bg-accent/5 select-none relative z-10 cursor-pointer active:bg-accent/10 transition-colors",
                         isHighlighted && "ring-2 ring-primary animate-pulse-neon shadow-glow"
                     )}
                     style={{
