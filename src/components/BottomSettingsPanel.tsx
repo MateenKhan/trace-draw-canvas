@@ -22,7 +22,19 @@ import {
     AlignLeft,
     AlignCenter,
     AlignRight,
+    AlertTriangle,
 } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
     StrokeStyle,
     FillStyle,
@@ -44,6 +56,9 @@ interface BottomSettingsPanelProps {
     onTextStyleChange: (style: TextStyle) => void;
     onImageFilterChange: (filter: ImageFilter) => void;
     onTraceSettingsChange: (settings: TraceSettings) => void;
+    maxHistory: number;
+    onMaxHistoryChange: (value: number) => void;
+    onDeleteAll: () => void;
 }
 
 export const BottomSettingsPanel = ({
@@ -57,6 +72,9 @@ export const BottomSettingsPanel = ({
     onTextStyleChange,
     onImageFilterChange,
     onTraceSettingsChange,
+    maxHistory,
+    onMaxHistoryChange,
+    onDeleteAll,
 }: BottomSettingsPanelProps) => {
 
     const updateTraceSetting = <K extends keyof TraceSettings>(
@@ -68,7 +86,67 @@ export const BottomSettingsPanel = ({
 
     return (
         <div className="w-full max-h-[50vh] overflow-y-auto bg-background/95 backdrop-blur-md border-t border-panel-border shadow-2xl p-4 rounded-t-xl">
-            <Accordion type="single" collapsible className="w-full" defaultValue="appearance">
+            <Accordion type="single" collapsible className="w-full">
+                {/* Application Settings */}
+                <AccordionItem value="application">
+                    <AccordionTrigger>Application Settings</AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs">
+                                <span>Max History States</span>
+                                <span>{maxHistory}</span>
+                            </div>
+                            <Slider
+                                value={[maxHistory]}
+                                min={5}
+                                max={100}
+                                step={5}
+                                onValueChange={([v]) => onMaxHistoryChange(v)}
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                                Higher values allow more undo steps but consume more memory.
+                            </p>
+                        </div>
+
+                        <div className="pt-4 border-t border-border/50">
+                            <Label className="text-xs text-destructive font-medium mb-2 block">Danger Zone</Label>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" className="w-full gap-2">
+                                        <AlertTriangle className="w-4 h-4" />
+                                        Reset Application Data
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete Everything?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will immediately wipe:
+                                            <ul className="list-disc pl-5 mt-2 space-y-1 text-xs">
+                                                <li>All Canvas Drawings & Shapes</li>
+                                                <li>All History & Undo States</li>
+                                                <li>Project Storage & Snapshots</li>
+                                                <li>Layer Structure</li>
+                                            </ul>
+                                            <div className="mt-4 font-semibold text-destructive">
+                                                This action is irreversible.
+                                            </div>
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={onDeleteAll}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        >
+                                            Yes, Delete Everything
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
                 {/* Stroke & Fill */}
                 <AccordionItem value="appearance">
                     <AccordionTrigger>Appearance (Stroke & Fill)</AccordionTrigger>

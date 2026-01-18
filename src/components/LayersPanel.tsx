@@ -1203,8 +1203,8 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
               {deleteConfirm.isMultiple
-                ? `Are you sure you want to delete ${selectedIds.size} selected items? This will remove all nested objects and cannot be undone.`
-                : "Are you sure you want to delete this layer? This will remove all nested objects and cannot be undone."
+                ? `Are you sure you want to delete ${selectedIds.size} selected items? This will remove all nested objects from the canvas. Note: Past history states are preserved.`
+                : "Are you sure you want to delete this layer? This will remove all nested objects from the canvas. Note: Past history states are preserved."
               }
             </AlertDialogDescription>
           </AlertDialogHeader>

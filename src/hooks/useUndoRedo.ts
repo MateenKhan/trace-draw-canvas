@@ -19,7 +19,7 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
   const [canRedo, setCanRedo] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
-  
+
   const isRestoringRef = useRef(false);
   const actionCounterRef = useRef(0);
 
@@ -63,7 +63,7 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
     const thumbnail = generateThumbnail(canvas);
     const newIndex = actionCounterRef.current;
     actionCounterRef.current++;
-    
+
     const entry: HistoryEntry = {
       id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       json,
@@ -71,17 +71,18 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
       timestamp: Date.now(),
       label: getActionLabel(newIndex),
     };
-    
+
     setHistory(prev => {
       const newHistory = prev.slice(0, currentIndex + 1);
       newHistory.push(entry);
-      
+
       if (newHistory.length > maxHistory) {
-        return newHistory.slice(1);
+        // Strictly keep only the last N states
+        return newHistory.slice(-maxHistory);
       }
       return newHistory;
     });
-    
+
     setCurrentIndex(prev => {
       const newIdx = Math.min(prev + 1, maxHistory - 1);
       setCanUndo(newIdx > 0);
@@ -93,9 +94,9 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
   // Restore to specific history entry
   const restoreToIndex = useCallback((index: number) => {
     if (!canvas || index < 0 || index >= history.length) return;
-    
+
     isRestoringRef.current = true;
-    
+
     const state = history[index];
     canvas.loadFromJSON(JSON.parse(state.json)).then(() => {
       canvas.renderAll();
@@ -118,18 +119,55 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
     restoreToIndex(currentIndex + 1);
   }, [currentIndex, history.length, restoreToIndex]);
 
+  // Delete a specific history entry
+  const deleteHistoryEntry = useCallback((index: number) => {
+    if (index < 0 || index >= history.length) return;
+
+    // If we are deleting the current state, we need to move to a safe state first
+    if (index === currentIndex) {
+      if (index > 0) {
+        // Move to previous state
+        restoreToIndex(index - 1);
+      } else if (history.length > 1) {
+        // We are at 0, but there are future states. Move to next state (which will become 0)
+        restoreToIndex(index + 1);
+      }
+      // If it's the only state, we don't restore, just clear below
+    }
+
+    setHistory(prev => {
+      const newHistory = [...prev];
+      newHistory.splice(index, 1);
+      return newHistory;
+    });
+
+    setCurrentIndex(prev => {
+      if (index < prev) return prev - 1;
+      if (index === prev) {
+        // If we were at 0 and deleted 0, we stay at 0 (unless empty)
+        if (prev === 0 && history.length === 1) return -1;
+        return Math.max(0, prev - 1);
+      }
+      return prev;
+    });
+
+    // If we deleted the only entry
+    if (history.length === 1) {
+      actionCounterRef.current = 0;
+      setCanUndo(false);
+      setCanRedo(false);
+    }
+  }, [currentIndex, history.length, restoreToIndex]);
+
   // Clear history
   const clearHistory = useCallback(() => {
+    if (!canvas) return;
+
     setHistory([]);
     setCurrentIndex(-1);
     setCanUndo(false);
     setCanRedo(false);
-    actionCounterRef.current = 0;
-    
-    if (canvas) {
-      setTimeout(() => saveState(), 100);
-    }
-  }, [canvas, saveState]);
+  }, [canvas]);
 
   // Setup canvas event listeners
   useEffect(() => {
@@ -157,7 +195,7 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
@@ -166,7 +204,7 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
           undo();
         }
       }
-      
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
         e.preventDefault();
         redo();
@@ -187,5 +225,6 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
     history,
     currentIndex,
     restoreToIndex,
+    deleteHistoryEntry,
   };
 };

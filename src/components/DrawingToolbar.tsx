@@ -88,12 +88,17 @@ interface DrawingToolbarProps {
   onTextStyleChange: (style: TextStyle) => void;
   onImageFilterChange: (filter: ImageFilter) => void;
   onTraceSettingsChange: (settings: TraceSettings) => void;
+  maxHistory: number;
+  onMaxHistoryChange: (value: number) => void;
+  activeCategory: DockCategory;
+  onCategoryChange: (category: DockCategory) => void;
+  onDeleteAll: () => void;
 }
 
-type DockCategory = 'select' | 'draw' | 'shapes' | 'sim' | '3d' | 'settings' | 'image' | 'layers' | 'export' | 'projects' | 'text' | null;
+export type DockCategory = 'select' | 'draw' | 'shapes' | 'sim' | '3d' | 'settings' | 'image' | 'layers' | 'export' | 'projects' | 'text' | null;
 
 export const DrawingToolbar = (props: DrawingToolbarProps) => {
-  const [activeCategory, setActiveCategory] = useState<DockCategory>(null);
+  const { activeCategory, onCategoryChange } = props;
   const [showHelp, setShowHelp] = useState(false);
 
   // Auto-select category based on active tool change (external)
@@ -101,30 +106,30 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
     switch (props.activeTool) {
       case 'select':
       case 'pan':
-        setActiveCategory('select');
+        onCategoryChange('select');
         break;
       case 'pen':
       case 'pencil':
-        setActiveCategory('draw');
+        onCategoryChange('draw');
         break;
       case 'line':
       case 'rectangle':
       case 'ellipse':
       case 'polygon':
-        setActiveCategory('shapes');
+        onCategoryChange('shapes');
         break;
       case 'text':
-        setActiveCategory('text');
+        onCategoryChange('text');
         break;
       default:
         break;
     }
-  }, [props.activeTool]);
+  }, [props.activeTool, onCategoryChange]);
 
   const handleCategoryClick = (cat: DockCategory) => {
     if (cat === activeCategory && cat !== 'sim' && cat !== '3d') {
       // Toggle off if clicking same, unless it's a trigger-only category
-      setActiveCategory(null);
+      onCategoryChange(null);
       return;
     }
 
@@ -146,7 +151,12 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
       return;
     }
 
-    setActiveCategory(cat);
+    // Auto-select tools for specific categories
+    if (cat === 'shapes') {
+      props.onToolChange('rectangle');
+    }
+
+    onCategoryChange(cat);
   };
 
   const ToolIcon = ({ icon: Icon, label, isActive, onClick, disabled, className }: any) => (
@@ -204,6 +214,9 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
               onTextStyleChange={props.onTextStyleChange}
               onImageFilterChange={props.onImageFilterChange}
               onTraceSettingsChange={props.onTraceSettingsChange}
+              maxHistory={props.maxHistory}
+              onMaxHistoryChange={props.onMaxHistoryChange}
+              onDeleteAll={props.onDeleteAll}
             />
           )}
 
@@ -400,6 +413,13 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
                 <span className="text-[10px] font-medium">Export</span>
               </button>
             }
+          />
+
+          <ToolIcon
+            icon={Settings2}
+            label="Settings"
+            isActive={activeCategory === 'settings'}
+            onClick={() => handleCategoryClick('settings')}
           />
 
           <button

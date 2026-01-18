@@ -6,7 +6,7 @@ import { useMobileDrawing } from "@/hooks/useMobileDrawing";
 import { useSplineTool } from "@/hooks/useSplineTool";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { DrawingToolbar } from "@/components/DrawingToolbar";
+import { DrawingToolbar, DockCategory } from "@/components/DrawingToolbar";
 import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
 import { SvgPreview } from "@/components/SvgPreview";
@@ -36,6 +36,7 @@ import {
   addProjectSnapshot,
   restoreToSnapshot,
   getProject,
+  clearProjectHistory,
 } from "@/lib/projects";
 import { FolderOpen } from "lucide-react";
 import {
@@ -85,7 +86,12 @@ const CanvasEditor = () => {
   const [layers, setLayers] = useState<Layer[]>(createDefaultLayers());
   const [groups, setGroups] = useState<LayerGroup[]>([]);
   const [activeLayerId, setActiveLayerId] = useState<string | null>(layers[0]?.id || null);
-  const [showLayersPanel, setShowLayersPanel] = useState(true);
+  const [showLayersPanel, setShowLayersPanel] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
 
   // UI state
   const [showMobileSettings, setShowMobileSettings] = useState(false);
@@ -95,6 +101,7 @@ const CanvasEditor = () => {
   const [showGCodePanel, setShowGCodePanel] = useState(false);
   const [show3DPanel, setShow3DPanel] = useState(false);
   const [showMobileSimulation, setShowMobileSimulation] = useState(false);
+  const [activeDockCategory, setActiveDockCategory] = useState<DockCategory>(null);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [canDeleteSelected, setCanDeleteSelected] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -147,8 +154,21 @@ const CanvasEditor = () => {
   // Image editing hook
   const { applyFilters } = useImageEditing({ canvas });
 
+  const [maxHistory, setMaxHistory] = useState(30);
+
   // Undo/Redo hook
-  const { undo, redo, canUndo, canRedo, clearHistory, history, currentIndex, restoreToIndex } = useUndoRedo({ canvas });
+  const {
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    clearHistory,
+    saveState,
+    history,
+    currentIndex,
+    restoreToIndex,
+    deleteHistoryEntry,
+  } = useUndoRedo({ canvas, maxHistory });
 
 
   // Mobile drawing hook for interactive shape creation
@@ -628,6 +648,107 @@ const CanvasEditor = () => {
     };
   }, [canvas]);
 
+  // Handle Full History Clear (Memory + Storage)
+  const handleClearAllHistory = useCallback(() => {
+    // 1. Clear In-Memory Undo Stack
+    clearHistory();
+
+    // 2. Clear Persistent Project Storage
+    // Fallback to first project (Base) if no active ID is set explicit
+    const targetId = activeProjectId || projects[0]?.id;
+
+    if (targetId) {
+      const updated = clearProjectHistory(targetId);
+      if (updated) {
+        // Refresh projects list to reflect storage change
+        setProjects(getProjects());
+        setActiveProjectId(null); // Ensure session is unlinked from old project
+        toast.info("History and Storage cleared completely.");
+      }
+    } else {
+      setActiveProjectId(null);
+      toast.info("Active session history cleared.");
+    }
+  }, [activeProjectId, projects, clearHistory]);
+
+  // Handle Complete Nuclear Reset
+  const handleDeleteEverything = useCallback(() => {
+    // 1. Wipe Canvas (Visuals)
+    clearCanvas();
+
+    // Delay to let canvas events (object:removed) resolve
+    setTimeout(() => {
+      // 2. Wipe History (Undo Stack)
+      clearHistory();
+
+      // 3. NUCLEAR OPTION: Wipe LocalStorage completely
+      // This ensures no hidden keys or "Zombie" projects remain
+      try {
+        localStorage.clear();
+        console.log("LocalStorage cleared completely.");
+      } catch (e) {
+        console.error("Failed to clear localStorage", e);
+      }
+
+      // 4. Force Reload to clear Memory State (prevent auto-save resurrection)
+      toast.success("System Reset. Performing hard reload...");
+
+      // Short delay to show toast
+      setTimeout(() => {
+        // Force fresh load bypassing cache (critical for mobile)
+        const url = new URL(window.location.href);
+        url.searchParams.set('reset', Date.now().toString());
+        window.location.href = url.toString();
+      }, 1000);
+
+    }, 100);
+  }, [activeProjectId, clearCanvas, clearHistory, resetView]);
+
+  // Click empty space to close panels
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleMouseDown = (e: any) => {
+      // If clicked on empty space (no target)
+      if (!e.target) {
+        // Close floating panels
+        if (window.innerWidth < 768) {
+          setShowLayersPanel(false);
+        }
+        setShowHistoryPanel(false);
+        setShowProjectsPanel(false);
+        setShowMobileSettings(false);
+
+        // Close dock menus (settings, etc) - keeping tools active though
+        setActiveDockCategory((prev) => {
+          // Don't close if it's a tool category like 'draw' or 'shapes' or 'select'??
+          // User request: "active popups should close including layers/hisotry"
+          // If I have 'draw' category open (showing pen tool), maybe keep it?
+          // "Settings" popup definitely close.
+          // Let's close settings/export/image/layers categories.
+          // Keep tool categories open?
+          // "empty space on canvas is clicked then active popups should close"
+          // The tool sub-bar is not exactly a popup, it's a toolbar extension.
+          // But Settings IS a popup.
+          if (prev === 'settings' || prev === 'export' || prev === 'image' || prev === 'layers' || prev === 'projects') {
+            return null;
+          }
+          return prev;
+        });
+
+        // Deselect objects (Fabric usually handles this, but we can enforce)
+        // canvas.discardActiveObject();
+        // canvas.requestRenderAll();
+      }
+    };
+
+    canvas.on('mouse:down', handleMouseDown);
+    return () => {
+      canvas.off('mouse:down', handleMouseDown);
+    };
+  }, [canvas]);
+
+  // Auto-save to active project
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -736,8 +857,11 @@ const CanvasEditor = () => {
               onRestoreToIndex={restoreToIndex}
               onUndo={undo}
               onRedo={redo}
+              onClear={handleClearAllHistory}
+              onDeleteEntry={deleteHistoryEntry}
               canUndo={canUndo}
               canRedo={canRedo}
+              isMobile={isMobile}
             />
 
 
@@ -802,6 +926,11 @@ const CanvasEditor = () => {
           onTextStyleChange={handleTextStyleChange}
           onImageFilterChange={handleImageFilterChange}
           onTraceSettingsChange={setTraceSettings}
+          maxHistory={maxHistory}
+          onMaxHistoryChange={setMaxHistory}
+          activeCategory={activeDockCategory}
+          onCategoryChange={setActiveDockCategory}
+          onDeleteAll={handleDeleteEverything}
         />
 
         {/* Mobile Layers Panel Overlay */}
