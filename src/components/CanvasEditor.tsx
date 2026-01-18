@@ -134,6 +134,8 @@ const CanvasEditor = () => {
     resetView,
   } = useCanvas({ width: 800, height: 600 });
 
+  const isReset = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('reset');
+
   // Drawing tools hook
   const {
     addRectangle,
@@ -168,7 +170,7 @@ const CanvasEditor = () => {
     currentIndex,
     restoreToIndex,
     deleteHistoryEntry,
-  } = useUndoRedo({ canvas, maxHistory });
+  } = useUndoRedo({ canvas, maxHistory: 30, skipInitialSnapshot: isReset });
 
 
   // Mobile drawing hook for interactive shape creation
@@ -769,6 +771,15 @@ const CanvasEditor = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [enableDrawingMode, enablePenMode, handleToolChange, deleteSelected]);
+
+  // Clean Reset URL param
+  useEffect(() => {
+    if (isReset) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('reset');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [isReset]);
 
   return (
     <div ref={containerRef} className="min-h-screen bg-background flex flex-col">

@@ -12,9 +12,10 @@ export interface HistoryEntry {
 interface UseUndoRedoOptions {
   canvas: FabricCanvas | null;
   maxHistory?: number;
+  skipInitialSnapshot?: boolean;
 }
 
-export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => {
+export const useUndoRedo = ({ canvas, maxHistory = 30, skipInitialSnapshot = false }: UseUndoRedoOptions) => {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -22,6 +23,7 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
 
   const isRestoringRef = useRef(false);
   const actionCounterRef = useRef(0);
+  const lastSavedJsonRef = useRef<string | null>(null);
 
   // Generate thumbnail from canvas
   const generateThumbnail = useCallback((fabricCanvas: FabricCanvas): string => {
@@ -60,6 +62,11 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
     if (!canvas || isRestoringRef.current) return;
 
     const json = JSON.stringify(canvas.toJSON());
+
+    // Dedup: if state hasn't changed, don't save
+    if (json === lastSavedJsonRef.current) return;
+    lastSavedJsonRef.current = json;
+
     const thumbnail = generateThumbnail(canvas);
     const newIndex = actionCounterRef.current;
     actionCounterRef.current++;
@@ -167,13 +174,19 @@ export const useUndoRedo = ({ canvas, maxHistory = 30 }: UseUndoRedoOptions) => 
     setCurrentIndex(-1);
     setCanUndo(false);
     setCanRedo(false);
+    lastSavedJsonRef.current = null;
   }, [canvas]);
 
   // Setup canvas event listeners
   useEffect(() => {
     if (!canvas) return;
 
-    const timeout = setTimeout(() => saveState(), 100);
+    let timeout: NodeJS.Timeout;
+
+    if (!skipInitialSnapshot) {
+      timeout = setTimeout(() => saveState(), 100);
+    }
+
 
     const handleChange = () => {
       saveState();
