@@ -708,6 +708,7 @@ const CanvasEditor = () => {
     setFill,
     setTextStyle,
     setCanDeleteSelected,
+    onTextSelect: () => setShowTextPanel(true),
   });
 
   // Handle Full History Clear (Memory + Storage)

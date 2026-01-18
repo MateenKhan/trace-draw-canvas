@@ -141,10 +141,10 @@ export const useDrawingTools = ({
   }, [canvas, stroke, fill]);
 
   // Add text
-  const addText = useCallback((text: string = "Double-click to edit") => {
+  const addText = useCallback((text: string = "") => {
     if (!canvas) return;
 
-    const itext = new IText(text, {
+    const itext = new IText(text || textStyle.content || "Double-click to edit", {
       left: canvas.getWidth() / 2 - 100,
       top: canvas.getHeight() / 2 - 20,
       fontFamily: textStyle.fontFamily,
@@ -264,6 +264,7 @@ export const useDrawingTools = ({
             offsetX: 0,
             offsetY: 0,
           }) : null,
+          ...(newStyle.content !== undefined ? { text: newStyle.content } : {}),
         });
       }
     });

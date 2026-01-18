@@ -49,7 +49,7 @@ export const TextSettingsPanel = ({
             />
 
             {/* Panel */}
-            <div className="relative w-80 h-full bg-background/30 backdrop-blur-md border-l border-white/5 shadow-2xl animate-slide-left flex flex-col pt-0 pb-20 lg:pb-0 pointer-events-auto">
+            <div className="relative w-80 h-full bg-background/20 backdrop-blur-sm border-l border-white/5 shadow-2xl animate-slide-left flex flex-col pt-0 pb-20 lg:pb-0 pointer-events-auto">
                 <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
                     <h2 className="text-sm font-semibold flex items-center gap-2 uppercase tracking-wider text-muted-foreground">
                         <Type className="w-4 h-4" /> Text Settings

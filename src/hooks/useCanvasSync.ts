@@ -15,6 +15,7 @@ interface UseCanvasSyncOptions {
     setFill: (fill: FillStyle | ((prev: FillStyle) => FillStyle)) => void;
     setTextStyle: (style: TextStyle | ((prev: TextStyle) => TextStyle)) => void;
     setCanDeleteSelected: (can: boolean) => void;
+    onTextSelect?: () => void;
 }
 
 export const useCanvasSync = ({
@@ -23,6 +24,7 @@ export const useCanvasSync = ({
     setFill,
     setTextStyle,
     setCanDeleteSelected,
+    onTextSelect,
 }: UseCanvasSyncOptions) => {
     const sync = useCallback(() => {
         if (!canvas) return;
@@ -55,6 +57,7 @@ export const useCanvasSync = ({
 
             // Sync Text Style
             if (obj.type === 'i-text' || obj.type === 'text') {
+                onTextSelect?.();
                 const textObj = obj as any;
                 setTextStyle(prev => {
                     if (
