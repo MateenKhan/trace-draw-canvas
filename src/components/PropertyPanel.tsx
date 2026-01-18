@@ -25,6 +25,9 @@ import {
   AlignRight,
   Bold,
   Italic,
+  Ruler,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import {
   DrawingTool,
@@ -49,7 +52,19 @@ interface PropertyPanelProps {
   onFillChange: (fill: FillStyle) => void;
   onTextStyleChange: (style: TextStyle) => void;
   onImageFilterChange: (filter: ImageFilter) => void;
+
+  // Dimensions
+  selectedObjectDimensions?: { width: number; height: number; type: string } | null;
+  onDimensionsChange?: (width: number, height: number) => void;
 }
+
+const PPI = 96;
+const CONVERSION = {
+  px: 1,
+  in: PPI,
+  mm: PPI / 25.4,
+  ft: PPI * 12,
+};
 
 export const PropertyPanel = ({
   activeTool,
@@ -61,15 +76,55 @@ export const PropertyPanel = ({
   onFillChange,
   onTextStyleChange,
   onImageFilterChange,
+  selectedObjectDimensions,
+  onDimensionsChange,
 }: PropertyPanelProps) => {
   const isDrawingTool = ['pen', 'pencil', 'line', 'rectangle', 'ellipse', 'polygon'].includes(activeTool);
   const isTextTool = activeTool === 'text';
   const isImageTool = ['crop', 'transform'].includes(activeTool);
 
+  const [unit, setUnit] = useState<'px' | 'in' | 'mm' | 'ft'>('in');
+  const [lockAspect, setLockAspect] = useState(true);
+
+  // Helper to format values based on unit
+  const formatValue = (px: number) => {
+    const val = px / CONVERSION[unit];
+    return unit === 'px' ? Math.round(val) : Number(val.toFixed(2));
+  };
+
+  const handleDimensionChange = (type: 'width' | 'height', value: string) => {
+    if (!selectedObjectDimensions || !onDimensionsChange) return;
+
+    const numVal = parseFloat(value);
+    if (isNaN(numVal)) return;
+
+    const pxVal = numVal * CONVERSION[unit];
+    const currentW = selectedObjectDimensions.width;
+    const currentH = selectedObjectDimensions.height;
+    const aspect = currentW / currentH;
+
+    let newW = currentW;
+    let newH = currentH;
+
+    if (type === 'width') {
+      newW = pxVal;
+      if (lockAspect) newH = newW / aspect;
+    } else {
+      newH = pxVal;
+      if (lockAspect) newW = newH * aspect;
+    }
+
+    onDimensionsChange(newW, newH);
+  };
+
   return (
     <div className="panel w-full animate-slide-up">
-      <Tabs defaultValue="stroke" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 gap-1 p-1 bg-secondary/50 rounded-lg">
+      <Tabs defaultValue="size" className="w-full">
+        <TabsList className="w-full grid grid-cols-4 gap-1 p-1 bg-secondary/50 rounded-lg">
+          <TabsTrigger value="size" className="gap-1.5 text-xs">
+            <Ruler className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Size</span>
+          </TabsTrigger>
           <TabsTrigger value="stroke" className="gap-1.5 text-xs">
             <Paintbrush className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Stroke</span>
@@ -83,6 +138,74 @@ export const PropertyPanel = ({
             <span className="hidden md:inline">Image</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Size Tab */}
+        <TabsContent value="size" className="space-y-4 p-3">
+          {!selectedObjectDimensions ? (
+            <div className="text-xs text-muted-foreground text-center py-4">
+              Select an object to resize
+            </div>
+          ) : (
+            <>
+              {/* Unit Selector */}
+              <div className="space-y-2">
+                <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Units
+                </Label>
+                <Select value={unit} onValueChange={(v: any) => setUnit(v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="px">Pixels (px)</SelectItem>
+                    <SelectItem value="in">Inches (in)</SelectItem>
+                    <SelectItem value="mm">Millimeters (mm)</SelectItem>
+                    <SelectItem value="ft">Feet (ft)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Dimensions Inputs */}
+              <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-end">
+                <div className="space-y-2">
+                  <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Width</Label>
+                  <Input
+                    type="number"
+                    step={unit === 'px' ? 1 : 0.1}
+                    value={formatValue(selectedObjectDimensions.width)}
+                    onChange={(e) => handleDimensionChange('width', e.target.value)}
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 mb-0.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => setLockAspect(!lockAspect)}
+                  title={lockAspect ? "Unlock Aspect Ratio" : "Lock Aspect Ratio"}
+                >
+                  {lockAspect ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                </Button>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Height</Label>
+                  <Input
+                    type="number"
+                    step={unit === 'px' ? 1 : 0.1}
+                    value={formatValue(selectedObjectDimensions.height)}
+                    onChange={(e) => handleDimensionChange('height', e.target.value)}
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="text-[10px] text-muted-foreground text-center pt-2">
+                Original: {Math.round(selectedObjectDimensions.width)} x {Math.round(selectedObjectDimensions.height)} px
+              </div>
+            </>
+          )}
+        </TabsContent>
 
         {/* Stroke & Fill Tab */}
         <TabsContent value="stroke" className="space-y-4 p-3">

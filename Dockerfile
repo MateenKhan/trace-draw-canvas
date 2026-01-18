@@ -13,21 +13,16 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Runtime
-FROM node:20-alpine AS runner
-WORKDIR /app
-
-# Install 'serve' to host the static files
-RUN npm install -g serve
+FROM nginx:alpine AS runner
 
 # Copy built assets from builder stage
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Set environment variables
-ENV NODE_ENV production
-ENV PORT 4000
+# Copy custom Nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port (Coolify expects this)
+# Expose port 4000
 EXPOSE 4000
 
-# Start the static server (SPA mode with -s)
-CMD ["serve", "-s", "dist", "-l", "4000"]
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]

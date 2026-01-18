@@ -13,6 +13,7 @@ import { SvgPreview } from "@/components/SvgPreview";
 import { ImageUploadDialog } from "@/components/ImageUploadDialog";
 import { LayersPanel } from "@/components/LayersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { BottomSettingsPanel } from "@/components/BottomSettingsPanel";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
 import { ImageCropper } from "@/components/ImageCropper";
 import { ProjectsPanel } from "@/components/ProjectsPanel";
@@ -157,7 +158,68 @@ const CanvasEditor = () => {
   // Image editing hook
   const { applyFilters } = useImageEditing({ canvas });
 
+
   const [maxHistory, setMaxHistory] = useState(30);
+
+  // Dimensions State for Property Panel
+  const [selectedDimensions, setSelectedDimensions] = useState<{ width: number, height: number, type: string } | null>(null);
+
+  useEffect(() => {
+    if (!canvas) return;
+
+    const updateDims = () => {
+      const active = canvas.getActiveObject();
+      if (active) {
+        setSelectedDimensions({
+          width: active.getScaledWidth(),
+          height: active.getScaledHeight(),
+          type: active.type
+        });
+      } else {
+        setSelectedDimensions(null);
+      }
+    };
+
+    canvas.on('selection:created', updateDims);
+    canvas.on('selection:updated', updateDims);
+    canvas.on('selection:cleared', () => setSelectedDimensions(null));
+    canvas.on('object:modified', updateDims);
+    canvas.on('object:scaling', updateDims); // Realtime update while dragging
+
+    return () => {
+      canvas.off('selection:created', updateDims);
+      canvas.off('selection:updated', updateDims);
+      canvas.off('selection:cleared');
+      canvas.off('object:modified', updateDims);
+      canvas.off('object:scaling', updateDims);
+    };
+  }, [canvas]);
+
+  const handleDimensionsChange = useCallback((w: number, h: number) => {
+    if (!canvas) return;
+    const active = canvas.getActiveObject();
+    if (active) {
+      // Calculate new scales based on original dimensions
+      // This allows non-uniform scaling if aspect is unlocked
+      const scaleX = w / active.width;
+      const scaleY = h / active.height;
+
+      active.set({ scaleX, scaleY });
+      active.setCoords();
+      canvas.requestRenderAll();
+
+      // Update local state immediately
+      setSelectedDimensions({ width: w, height: h, type: active.type });
+
+      // Trigger save only on commit (this method is called on input change? PropertyPanel calls on Change)
+      // Ideally PropertyPanel input is debounced or onBlur?
+      // Current UI uses onChange. So it might spam history.
+      // But PropertyPanel input is standard input.
+      // Better to perhaps debounce saveState?
+      // For now, I'll update object but maybe delay saveState or rely on object:modified?
+      // No, programmatically setting props doesn't fire object:modified unless fire() called.
+    }
+  }, [canvas]);
 
   // Undo/Redo hook
   const {
@@ -816,35 +878,69 @@ const CanvasEditor = () => {
       {/* Main content */}
       <div className="flex-1 flex flex-col lg:flex-row relative">
         {/* Left panel - Settings (Desktop) */}
-        <aside className="hidden lg:flex flex-col w-80 border-r border-panel-border overflow-hidden">
-          <Tabs value={activePanel} onValueChange={(v) => setActivePanel(v as "properties" | "trace")} className="flex-1 flex flex-col">
-            <TabsList className="w-full grid grid-cols-2 gap-1 p-2 bg-transparent border-b border-panel-border rounded-none">
-              <TabsTrigger value="properties" className="gap-1.5 text-xs data-[state=active]:bg-primary/20"><Palette className="w-3.5 h-3.5" />Properties</TabsTrigger>
-              <TabsTrigger value="trace" className="gap-1.5 text-xs data-[state=active]:bg-primary/20"><Settings2 className="w-3.5 h-3.5" />Trace</TabsTrigger>
-            </TabsList>
-            <TabsContent value="properties" className="flex-1 p-4 overflow-y-auto scrollbar-thin m-0">
-              <PropertyPanel activeTool={activeTool} stroke={stroke} fill={fill} textStyle={textStyle} imageFilter={imageFilter} onStrokeChange={handleStrokeChange} onFillChange={handleFillChange} onTextStyleChange={handleTextStyleChange} onImageFilterChange={handleImageFilterChange} />
-            </TabsContent>
-            <TabsContent value="trace" className="flex-1 p-4 overflow-y-auto scrollbar-thin m-0">
-              <TraceSettingsPanel settings={traceSettings} onSettingsChange={setTraceSettings} />
-              {svgContent && <div className="mt-4"><SvgPreview svgContent={svgContent} showPreview={showSvgOverlay} onTogglePreview={() => setShowSvgOverlay(!showSvgOverlay)} /></div>}
-            </TabsContent>
-          </Tabs>
-        </aside>
 
-        {/* Mobile Settings Panel */}
+
+        {/* Unified Settings Panel (Mobile & Desktop) */}
         {showMobileSettings && (
-          <div className="absolute inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-background/50 backdrop-blur-sm" onClick={() => setShowMobileSettings(false)} />
-            <div className="absolute inset-y-0 left-0 w-[85%] max-w-sm overflow-hidden bg-background/10 backdrop-blur-sm shadow-2xl animate-slide-up">
-              <div className="flex items-center justify-between p-4 border-b border-white/10">
-                <h2 className="text-lg font-semibold">Settings</h2>
-                <Button variant="toolbar" size="icon" onClick={() => setShowMobileSettings(false)}><X className="w-4 h-4" /></Button>
+          <div className="absolute inset-0 z-50 flex justify-end lg:justify-start pointer-events-none">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-sm pointer-events-auto" onClick={() => setShowMobileSettings(false)} />
+
+            {/* Drawer Panel */}
+            <div className="relative w-80 h-full bg-background/95 backdrop-blur-md shadow-2xl animate-slide-right flex flex-col border-r border-white/10 pointer-events-auto">
+              <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
+                <h2 className="text-sm font-semibold flex items-center gap-2 uppercase tracking-wider text-muted-foreground">
+                  <Settings2 className="w-4 h-4" /> Settings
+                </h2>
+                <Button variant="ghost" size="icon" onClick={() => setShowMobileSettings(false)} className="h-8 w-8"><X className="w-4 h-4" /></Button>
               </div>
-              <div className="p-4 overflow-y-auto scrollbar-thin h-[calc(100%-60px)]">
-                <PropertyPanel activeTool={activeTool} stroke={stroke} fill={fill} textStyle={textStyle} imageFilter={imageFilter} onStrokeChange={handleStrokeChange} onFillChange={handleFillChange} onTextStyleChange={handleTextStyleChange} onImageFilterChange={handleImageFilterChange} />
-                <div className="mt-6"><TraceSettingsPanel settings={traceSettings} onSettingsChange={setTraceSettings} /></div>
-              </div>
+
+              <Tabs defaultValue="properties" className="flex-1 flex flex-col min-h-0">
+                <TabsList className="w-full grid grid-cols-3 p-1 bg-transparent border-b border-white/10 rounded-none shrink-0">
+                  <TabsTrigger value="properties" className="text-xs">Properties</TabsTrigger>
+                  <TabsTrigger value="trace" className="text-xs">Trace</TabsTrigger>
+                  <TabsTrigger value="app" className="text-xs">App</TabsTrigger>
+                </TabsList>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+                  <TabsContent value="properties" className="p-4 m-0 h-full">
+                    <PropertyPanel
+                      activeTool={activeTool}
+                      stroke={stroke}
+                      fill={fill}
+                      textStyle={textStyle}
+                      imageFilter={imageFilter}
+                      onStrokeChange={handleStrokeChange}
+                      onFillChange={handleFillChange}
+                      onTextStyleChange={handleTextStyleChange}
+                      onImageFilterChange={handleImageFilterChange}
+                      selectedObjectDimensions={selectedDimensions}
+                      onDimensionsChange={handleDimensionsChange}
+                    />
+                  </TabsContent>
+                  <TabsContent value="trace" className="p-4 m-0 h-full">
+                    <TraceSettingsPanel settings={traceSettings} onSettingsChange={setTraceSettings} />
+                    {svgContent && <div className="mt-4"><SvgPreview svgContent={svgContent} showPreview={showSvgOverlay} onTogglePreview={() => setShowSvgOverlay(!showSvgOverlay)} /></div>}
+                  </TabsContent>
+                  <TabsContent value="app" className="p-0 m-0 h-full">
+                    <BottomSettingsPanel
+                      stroke={stroke}
+                      fill={fill}
+                      textStyle={textStyle}
+                      imageFilter={imageFilter}
+                      traceSettings={traceSettings}
+                      onStrokeChange={handleStrokeChange}
+                      onFillChange={handleFillChange}
+                      onTextStyleChange={handleTextStyleChange}
+                      onImageFilterChange={handleImageFilterChange}
+                      onTraceSettingsChange={setTraceSettings}
+                      maxHistory={maxHistory}
+                      onMaxHistoryChange={setMaxHistory}
+                      onDeleteAll={handleDeleteEverything}
+                    />
+                  </TabsContent>
+                </div>
+              </Tabs>
             </div>
           </div>
         )}
