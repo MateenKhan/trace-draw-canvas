@@ -48,7 +48,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       let newZoom = fabricCanvas.getZoom() * (1 - delta / 500);
 
       // Clamp zoom
-      newZoom = Math.max(0.1, Math.min(5, newZoom));
+      newZoom = Math.max(0.005, Math.min(100, newZoom));
 
       // Zoom to cursor position
       const pointer = fabricCanvas.getViewportPoint(opt.e);
@@ -116,7 +116,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
       if (isPinching && lastDistance > 0) {
         const scale = distance / lastDistance;
         let newZoom = fabricCanvas.getZoom() * scale;
-        newZoom = Math.max(0.1, Math.min(5, newZoom));
+        newZoom = Math.max(0.005, Math.min(100, newZoom));
 
         const point = { x: center.x - rect.left, y: center.y - rect.top };
         fabricCanvas.zoomToPoint(point as any, newZoom);

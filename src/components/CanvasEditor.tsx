@@ -1060,8 +1060,8 @@ const CanvasEditor = () => {
         <DrawingToolbar
           activeTool={activeTool}
           onToolChange={handleToolChange}
-          onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 5))}
-          onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.25))}
+          onZoomIn={() => setZoomLevel(Math.min(zoom + 0.25, 100))}
+          onZoomOut={() => setZoomLevel(Math.max(zoom - 0.25, 0.005))}
           onReset={resetView}
           onUpload={handleUploadClick}
           onTrace={handleTrace}
@@ -1109,11 +1109,23 @@ const CanvasEditor = () => {
           onDeleteAll={handleDeleteEverything}
         />
 
-        {/* Mobile Layers Panel Overlay */}
-        {showLayersPanel && isMobile && (
-          <div className="absolute inset-0 z-50 lg:hidden flex justify-end">
-            <div className="absolute inset-0 bg-transparent backdrop-blur-none" onClick={() => setShowLayersPanel(false)} />
-            <div className="relative w-72 h-full bg-background/10 backdrop-blur-[1px] border-l border-white/10 animate-slide-left flex flex-col pt-0 pb-20 shadow-2xl">
+        {/* Unified Layers Panel Overlay (Mobile & Desktop) */}
+        {showLayersPanel && (
+          <div className="absolute inset-0 z-50 flex justify-end pointer-events-none">
+            {/* Backdrop - darker on mobile, subtler on desktop */}
+            <div
+              className="absolute inset-0 bg-background/20 backdrop-blur-[1px] pointer-events-auto"
+              onClick={() => setShowLayersPanel(false)}
+            />
+
+            {/* Drawer Panel */}
+            <div className="relative w-72 h-full bg-background/95 backdrop-blur-md border-l border-white/10 animate-slide-left flex flex-col pt-0 pb-20 lg:pb-0 shadow-2xl pointer-events-auto">
+              <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Layers</h2>
+                <Button variant="ghost" size="icon" onClick={() => setShowLayersPanel(false)} className="h-8 w-8">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
               <div className="flex-1 overflow-hidden">
                 <LayersPanel
                   canvas={canvas}
@@ -1128,21 +1140,6 @@ const CanvasEditor = () => {
             </div>
           </div>
         )}
-
-        {/* Right Sidebar - Layers Panel (Desktop) */}
-        <aside className={cn("hidden lg:flex flex-col border-l border-panel-border overflow-hidden transition-all duration-300", showLayersPanel ? "w-72" : "w-0")}>
-          {showLayersPanel && (
-            <LayersPanel
-              canvas={canvas}
-              projectName={projects.find(p => p.id === activeProjectId)?.name || "Untitled Project"}
-              onClose={() => setShowLayersPanel(false)}
-              onUndo={undo}
-              onRedo={redo}
-              canUndo={canUndo}
-              canRedo={canRedo}
-            />
-          )}
-        </aside>
       </div>
 
       {/* G-code toolpath overlay - FIXED position for mobile visibility */}
