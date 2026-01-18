@@ -124,6 +124,10 @@ const CanvasEditor = () => {
     showOverlay: true,
   });
   const [toolPaths, setToolPaths] = useState<ToolPath[]>([]);
+  // Workspace state
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+
   const {
     canvasRef,
     canvas,
@@ -134,7 +138,28 @@ const CanvasEditor = () => {
     getImageData,
     clearCanvas,
     resetView,
-  } = useCanvas({ width: 800, height: 600 });
+  } = useCanvas(canvasSize);
+
+  // Auto-resize canvas to fill container
+  useEffect(() => {
+    if (!canvasContainerRef.current) return;
+
+    const updateSize = () => {
+      const container = canvasContainerRef.current;
+      if (container) {
+        setCanvasSize({
+          width: container.clientWidth,
+          height: container.clientHeight
+        });
+      }
+    };
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(canvasContainerRef.current);
+    updateSize(); // Initial call
+
+    return () => observer.disconnect();
+  }, []);
 
   const isReset = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('reset');
 
@@ -207,6 +232,7 @@ const CanvasEditor = () => {
       active.set({ scaleX, scaleY });
       active.setCoords();
       canvas.requestRenderAll();
+      canvas.renderAll(); // Extra call for iOS stability
 
       // Update local state immediately
       setSelectedDimensions({ width: w, height: h, type: active.type });
@@ -876,7 +902,7 @@ const CanvasEditor = () => {
     <div ref={containerRef} className="min-h-screen bg-background flex flex-col">
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col lg:flex-row relative">
+      <div className="flex-1 flex flex-col relative">
         {/* Left panel - Settings (Desktop) */}
 
 
@@ -937,6 +963,8 @@ const CanvasEditor = () => {
                       maxHistory={maxHistory}
                       onMaxHistoryChange={setMaxHistory}
                       onDeleteAll={handleDeleteEverything}
+                      canvasSize={canvasSize}
+                      onCanvasSizeChange={setCanvasSize}
                     />
                   </TabsContent>
                 </div>
@@ -964,8 +992,18 @@ const CanvasEditor = () => {
           </div>
 
           {/* Canvas container - takes all available space */}
-          <div className="flex-1 canvas-container relative flex items-center justify-center overflow-hidden" style={{ touchAction: 'none' }}>
-            <canvas ref={canvasRef} className="max-w-full max-h-full" style={{ touchAction: 'none' }} />
+          <div
+            ref={canvasContainerRef}
+            className="flex-1 canvas-container relative flex items-center justify-center overflow-hidden"
+            style={{ touchAction: 'none' }}
+          >
+            <canvas
+              ref={canvasRef}
+              className="max-w-full max-h-full shadow-2xl"
+              style={{
+                touchAction: 'none'
+              }}
+            />
 
             {/* SVG trace overlay */}
             {svgContent && showSvgOverlay && hasImage && (

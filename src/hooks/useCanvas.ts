@@ -156,6 +156,17 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
     };
   }, []);
 
+  // Handle dynamic canvas resizing
+  useEffect(() => {
+    if (canvas && options.width && options.height) {
+      canvas.setDimensions({
+        width: options.width,
+        height: options.height
+      });
+      canvas.renderAll();
+    }
+  }, [canvas, options.width, options.height]);
+
   const loadImage = useCallback(
     async (file: File): Promise<HTMLImageElement> => {
       return new Promise((resolve, reject) => {
