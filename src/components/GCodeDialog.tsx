@@ -35,12 +35,13 @@ interface GCodeDialogProps {
 export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
   ({ open, onOpenChange, canvas, onSimulationChange }, ref) => {
     const isMobile = useIsMobile();
-    
+
     // Extract toolpaths from canvas objects
     const getToolPaths = useCallback((): ToolPath[] => {
       if (!canvas) return [];
 
-      const objects = canvas.getObjects();
+      const activeObjects = canvas.getActiveObjects();
+      const objects = activeObjects.length > 0 ? activeObjects : canvas.getObjects();
       const toolPaths: ToolPath[] = [];
 
       objects.forEach((obj, index) => {
@@ -70,16 +71,16 @@ export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
     const handleExportGCode = useCallback((gcode: string) => {
       const blob = new Blob([gcode], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
-      
+
       // Create a proper download link that works on mobile
       const link = document.createElement("a");
       link.href = url;
       link.download = "toolpath.gcode";
       link.style.display = "none";
-      
+
       // For iOS Safari, we need to use a different approach
       const isSafariMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent) && /Safari/i.test(navigator.userAgent);
-      
+
       if (isSafariMobile) {
         // Open in new tab for iOS Safari
         window.open(url, "_blank");
@@ -90,7 +91,7 @@ export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
         document.body.removeChild(link);
         toast.success("G-code exported successfully");
       }
-      
+
       // Cleanup after a delay to ensure download starts
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     }, []);
@@ -99,8 +100,8 @@ export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
 
     const content = (
       <>
-        <GCodePanel 
-          toolPaths={toolPaths} 
+        <GCodePanel
+          toolPaths={toolPaths}
           onExportGCode={handleExportGCode}
           onSimulationChange={onSimulationChange}
         />
@@ -116,8 +117,8 @@ export const GCodeDialog = forwardRef<HTMLDivElement, GCodeDialogProps>(
     if (isMobile) {
       return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-          <SheetContent 
-            side="bottom" 
+          <SheetContent
+            side="bottom"
             className="h-[50vh] overflow-y-auto rounded-t-xl"
           >
             <SheetHeader>

@@ -42,6 +42,9 @@ import {
     ImageFilter,
     FONT_FAMILIES,
     DEFAULT_IMAGE_FILTER,
+    CANVAS_PRESETS,
+    CanvasUnit,
+    UNIT_CONVERTERS,
 } from "@/lib/types";
 import { TraceSettings } from "@/lib/tracing";
 
@@ -61,6 +64,8 @@ interface BottomSettingsPanelProps {
     onDeleteAll: () => void;
     canvasSize?: { width: number; height: number };
     onCanvasSizeChange?: (size: { width: number; height: number }) => void;
+    canvasUnit: CanvasUnit;
+    onCanvasUnitChange: (unit: CanvasUnit) => void;
 }
 
 export const BottomSettingsPanel = ({
@@ -79,6 +84,8 @@ export const BottomSettingsPanel = ({
     onDeleteAll,
     canvasSize,
     onCanvasSizeChange,
+    canvasUnit,
+    onCanvasUnitChange,
 }: BottomSettingsPanelProps) => {
 
     const updateTraceSetting = <K extends keyof TraceSettings>(
@@ -88,6 +95,24 @@ export const BottomSettingsPanel = ({
         onTraceSettingsChange({ ...traceSettings, [key]: value });
     };
 
+    // Helper to format values based on unit
+    const formatValue = (px: number) => {
+        const val = px / UNIT_CONVERTERS[canvasUnit];
+        return Math.round(val * 100) / 100; // 2 decimal places
+    };
+
+    const handleDimensionChange = (dim: 'width' | 'height', valStr: string) => {
+        if (!onCanvasSizeChange || !canvasSize) return;
+        const val = parseFloat(valStr);
+        if (isNaN(val)) return;
+
+        const pxVal = Math.round(val * UNIT_CONVERTERS[canvasUnit]);
+        onCanvasSizeChange({
+            ...canvasSize,
+            [dim]: pxVal
+        });
+    };
+
     return (
         <div className="w-full max-h-[50vh] overflow-y-auto bg-background/10 backdrop-blur-xl border-t border-white/10 shadow-2xl p-4 rounded-t-xl">
             <Accordion type="single" collapsible className="w-full">
@@ -95,31 +120,56 @@ export const BottomSettingsPanel = ({
                 <AccordionItem value="workspace">
                     <AccordionTrigger>Workspace (Canvas) Size</AccordionTrigger>
                     <AccordionContent className="space-y-4 pt-2">
+                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                            <Label className="text-xs">Unit</Label>
+                            <Select value={canvasUnit} onValueChange={(v) => onCanvasUnitChange(v as CanvasUnit)}>
+                                <SelectTrigger className="w-[120px] h-7 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="px">Pixels (px)</SelectItem>
+                                    <SelectItem value="in">Inches (in)</SelectItem>
+                                    <SelectItem value="mm">Millimeters (mm)</SelectItem>
+                                    <SelectItem value="cm">Centimeters (cm)</SelectItem>
+                                    <SelectItem value="ft">Feet (ft)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-[10px] uppercase text-muted-foreground font-mono">Width (px)</Label>
+                                <Label className="text-[10px] uppercase text-muted-foreground font-mono">Width ({canvasUnit})</Label>
                                 <Input
                                     type="number"
-                                    value={canvasSize?.width}
-                                    onChange={(e) => onCanvasSizeChange?.({ ...canvasSize!, width: parseInt(e.target.value) || 0 })}
+                                    value={canvasSize ? formatValue(canvasSize.width) : ''}
+                                    onChange={(e) => handleDimensionChange('width', e.target.value)}
                                     className="h-8 text-xs font-mono"
+                                    step={canvasUnit === 'px' ? 1 : 0.1}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] uppercase text-muted-foreground font-mono">Height (px)</Label>
+                                <Label className="text-[10px] uppercase text-muted-foreground font-mono">Height ({canvasUnit})</Label>
                                 <Input
                                     type="number"
-                                    value={canvasSize?.height}
-                                    onChange={(e) => onCanvasSizeChange?.({ ...canvasSize!, height: parseInt(e.target.value) || 0 })}
+                                    value={canvasSize ? formatValue(canvasSize.height) : ''}
+                                    onChange={(e) => handleDimensionChange('height', e.target.value)}
                                     className="h-8 text-xs font-mono"
+                                    step={canvasUnit === 'px' ? 1 : 0.1}
                                 />
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                            <Button variant="secondary" size="sm" className="h-7 text-[10px] px-2" onClick={() => onCanvasSizeChange?.({ width: 800, height: 600 })}>800x600</Button>
-                            <Button variant="secondary" size="sm" className="h-7 text-[10px] px-2" onClick={() => onCanvasSizeChange?.({ width: 960, height: 960 })}>10" Square</Button>
-                            <Button variant="secondary" size="sm" className="h-7 text-[10px] px-2" onClick={() => onCanvasSizeChange?.({ width: 1280, height: 720 })}>720p</Button>
-                            <Button variant="secondary" size="sm" className="h-7 text-[10px] px-2" onClick={() => onCanvasSizeChange?.({ width: 1920, height: 1080 })}>1080p</Button>
+                            {CANVAS_PRESETS.map((preset) => (
+                                <Button
+                                    key={preset.name}
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-7 text-[10px] px-2 flex-col items-start py-0.5 min-h-[32px]"
+                                    onClick={() => onCanvasSizeChange?.({ width: preset.width, height: preset.height })}
+                                >
+                                    <span>{preset.name}</span>
+                                    {preset.sub && <span className="text-[8px] opacity-60 leading-none">{preset.sub}</span>}
+                                </Button>
+                            ))}
                         </div>
                         <p className="text-[10px] text-muted-foreground">Adjusting canvas size will affect the total drawing area.</p>
                     </AccordionContent>
@@ -224,6 +274,19 @@ export const BottomSettingsPanel = ({
                                             step={1}
                                             onValueChange={([v]) => onStrokeChange({ ...stroke, width: v })}
                                         />
+                                        <div className="flex gap-1 pt-1 overflow-x-auto pb-1 scrollbar-none">
+                                            {[1, 2, 4, 8, 12, 24].map((v) => (
+                                                <Button
+                                                    key={v}
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="h-5 text-[9px] px-1.5 min-w-[24px]"
+                                                    onClick={() => onStrokeChange({ ...stroke, width: v })}
+                                                >
+                                                    {v}
+                                                </Button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -351,6 +414,19 @@ export const BottomSettingsPanel = ({
                                 step={1}
                                 onValueChange={([v]) => onTextStyleChange({ ...textStyle, fontSize: v })}
                             />
+                            <div className="flex gap-1 pt-1 overflow-x-auto pb-1 scrollbar-none">
+                                {[12, 16, 24, 32, 48, 64, 96].map((v) => (
+                                    <Button
+                                        key={v}
+                                        variant="secondary"
+                                        size="sm"
+                                        className="h-5 text-[9px] px-1.5 min-w-[28px]"
+                                        onClick={() => onTextStyleChange({ ...textStyle, fontSize: v })}
+                                    >
+                                        {v}
+                                    </Button>
+                                ))}
+                            </div>
                         </div>
                     </AccordionContent>
                 </AccordionItem>

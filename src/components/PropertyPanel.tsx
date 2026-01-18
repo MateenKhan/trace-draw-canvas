@@ -271,6 +271,19 @@ export const PropertyPanel = ({
               step={1}
               className="w-full"
             />
+            <div className="flex gap-1 pt-1 overflow-x-auto pb-1 scrollbar-none">
+              {[1, 2, 4, 8, 12, 24].map((v) => (
+                <Button
+                  key={v}
+                  variant="secondary"
+                  size="sm"
+                  className="h-5 text-[9px] px-1.5 min-w-[24px]"
+                  onClick={() => onStrokeChange({ ...stroke, width: v })}
+                >
+                  {v}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {/* Fill Color */}

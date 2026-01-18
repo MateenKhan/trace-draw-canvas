@@ -18,6 +18,8 @@ import {
     X,
     Type,
     Sparkles,
+    Move,
+    Square,
 } from "lucide-react";
 import {
     TextStyle,
@@ -31,6 +33,7 @@ interface TextSettingsPanelProps {
     textStyle: TextStyle;
     onTextStyleChange: (style: TextStyle) => void;
     onApply?: () => void;
+    isMobile?: boolean;
 }
 
 export const TextSettingsPanel = ({
@@ -39,19 +42,20 @@ export const TextSettingsPanel = ({
     textStyle,
     onTextStyleChange,
     onApply,
+    isMobile = false,
 }: TextSettingsPanelProps) => {
     if (!isVisible) return null;
 
     return (
         <div className="absolute inset-0 z-50 flex justify-end pointer-events-none">
-            {/* Backdrop */}
+            {/* Backdrop - Transparent but clickable to close */}
             <div
-                className="absolute inset-0 bg-background/20 backdrop-blur-[1px] pointer-events-auto"
-                onClick={onClose}
+                className="absolute inset-0 pointer-events-auto"
+                onClick={() => isMobile && onClose()}
             />
 
-            {/* Panel */}
-            <div className="relative w-80 h-full bg-background/20 backdrop-blur-sm border-l border-white/5 shadow-2xl animate-slide-left flex flex-col pt-0 pb-20 lg:pb-0 pointer-events-auto">
+            {/* Panel - Right sidebar with localized blur */}
+            <div className="relative w-80 h-full bg-background/40 backdrop-blur-xl border-l border-white/10 shadow-2xl animate-slide-left flex flex-col pt-0 pb-20 lg:pb-0 pointer-events-auto">
                 <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
                     <h2 className="text-sm font-semibold flex items-center gap-2 uppercase tracking-wider text-muted-foreground">
                         <Type className="w-4 h-4" /> Text Settings
@@ -117,6 +121,19 @@ export const TextSettingsPanel = ({
                             step={1}
                             className="w-full"
                         />
+                        <div className="flex gap-1 pt-1 overflow-x-auto pb-1 scrollbar-none">
+                            {[12, 16, 24, 32, 48, 64, 96].map((v) => (
+                                <Button
+                                    key={v}
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-5 text-[9px] px-1.5 min-w-[28px]"
+                                    onClick={() => onTextStyleChange({ ...textStyle, fontSize: v })}
+                                >
+                                    {v}
+                                </Button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Font Weight & Style */}
@@ -271,8 +288,13 @@ export const TextSettingsPanel = ({
                                 <Label className="text-xs font-mono text-muted-foreground uppercase">Glow Color</Label>
                                 <div className="flex items-center gap-2">
                                     <div
-                                        className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer relative shadow-glow"
-                                        style={{ backgroundColor: textStyle.glowColor === 'transparent' ? 'transparent' : textStyle.glowColor }}
+                                        className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer relative"
+                                        style={{
+                                            backgroundColor: textStyle.glowColor === 'transparent' ? 'transparent' : textStyle.glowColor,
+                                            boxShadow: textStyle.glowColor !== 'transparent' && textStyle.glowBlur > 0
+                                                ? `0 0 ${Math.min(textStyle.glowBlur, 20)}px ${textStyle.glowColor}`
+                                                : 'none'
+                                        }}
                                     >
                                         {textStyle.glowColor === 'transparent' && (
                                             <div className="absolute inset-0 flex items-center justify-center">
@@ -311,10 +333,271 @@ export const TextSettingsPanel = ({
                                     value={[textStyle.glowBlur || 0]}
                                     onValueChange={(v) => onTextStyleChange({ ...textStyle, glowBlur: v[0] })}
                                     min={0}
-                                    max={100}
+                                    max={250}
                                     step={1}
                                     className="w-full"
                                 />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Text Offset Section */}
+                    <div className="pt-4 border-t border-white/10 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Move className="w-3.5 h-3.5 text-primary" />
+                            <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
+                                Text Offset
+                            </Label>
+                        </div>
+
+                        <div className="space-y-4 bg-primary/5 p-3 rounded-xl border border-primary/10">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-mono text-muted-foreground uppercase">Offset Color</Label>
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer relative"
+                                        style={{
+                                            backgroundColor: textStyle.offsetColor || '#000000',
+                                        }}
+                                    >
+                                        <input
+                                            type="color"
+                                            value={textStyle.offsetColor || '#000000'}
+                                            onChange={(e) => onTextStyleChange({ ...textStyle, offsetColor: e.target.value })}
+                                            className="w-full h-full opacity-0 cursor-pointer"
+                                        />
+                                    </div>
+                                    <Input
+                                        value={textStyle.offsetColor || '#000000'}
+                                        onChange={(e) => onTextStyleChange({ ...textStyle, offsetColor: e.target.value })}
+                                        className="flex-1 font-mono text-xs h-8 bg-background/50"
+                                    />
+                                    <Button
+                                        variant="toolbar"
+                                        size="sm"
+                                        onClick={() => onTextStyleChange({ ...textStyle, offsetX: 0, offsetY: 0, offsetBlur: 0 })}
+                                        className="text-xs h-8 px-2"
+                                    >
+                                        Reset
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-mono text-muted-foreground uppercase">X Offset</Label>
+                                        <span className="text-xs font-mono text-primary">{textStyle.offsetX || 0}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[textStyle.offsetX || 0]}
+                                        onValueChange={(v) => onTextStyleChange({ ...textStyle, offsetX: v[0] })}
+                                        min={-50}
+                                        max={50}
+                                        step={1}
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-mono text-muted-foreground uppercase">Y Offset</Label>
+                                        <span className="text-xs font-mono text-primary">{textStyle.offsetY || 0}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[textStyle.offsetY || 0]}
+                                        onValueChange={(v) => onTextStyleChange({ ...textStyle, offsetY: v[0] })}
+                                        min={-50}
+                                        max={50}
+                                        step={1}
+                                        className="w-full"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-mono text-muted-foreground uppercase">Blur</Label>
+                                    <span className="text-xs font-mono text-primary">{textStyle.offsetBlur || 0}px</span>
+                                </div>
+                                <Slider
+                                    value={[textStyle.offsetBlur || 0]}
+                                    onValueChange={(v) => onTextStyleChange({ ...textStyle, offsetBlur: v[0] })}
+                                    min={0}
+                                    max={50}
+                                    step={1}
+                                    className="w-full"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Text Outline Section */}
+                    <div className="pt-4 border-t border-white/10 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Square className="w-3.5 h-3.5 text-primary" />
+                            <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
+                                Text Outline
+                            </Label>
+                        </div>
+
+                        <div className="space-y-4 bg-primary/5 p-3 rounded-xl border border-primary/10">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-mono text-muted-foreground uppercase">Outline Color</Label>
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer relative"
+                                        style={{
+                                            backgroundColor: textStyle.outlineColor || '#000000',
+                                        }}
+                                    >
+                                        <input
+                                            type="color"
+                                            value={textStyle.outlineColor || '#000000'}
+                                            onChange={(e) => onTextStyleChange({ ...textStyle, outlineColor: e.target.value })}
+                                            className="w-full h-full opacity-0 cursor-pointer"
+                                        />
+                                    </div>
+                                    <Input
+                                        value={textStyle.outlineColor || '#000000'}
+                                        onChange={(e) => onTextStyleChange({ ...textStyle, outlineColor: e.target.value })}
+                                        className="flex-1 font-mono text-xs h-8 bg-background/50"
+                                    />
+                                    <Button
+                                        variant="toolbar"
+                                        size="sm"
+                                        onClick={() => onTextStyleChange({ ...textStyle, outlineWidth: 0, outlineBlur: 0, outlineOffsetX: 0, outlineOffsetY: 0, outlineGap: 0 })}
+                                        className="text-xs h-8 px-2"
+                                    >
+                                        Off
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-mono text-muted-foreground uppercase">Stroke</Label>
+                                        <span className="text-xs font-mono text-primary">{textStyle.outlineWidth || 0}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[textStyle.outlineWidth || 0]}
+                                        onValueChange={(v) => onTextStyleChange({ ...textStyle, outlineWidth: v[0] })}
+                                        min={0}
+                                        max={50}
+                                        step={1}
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-mono text-muted-foreground uppercase">Blur</Label>
+                                        <span className="text-xs font-mono text-primary">{textStyle.outlineBlur || 0}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[textStyle.outlineBlur || 0]}
+                                        onValueChange={(v) => onTextStyleChange({ ...textStyle, outlineBlur: v[0] })}
+                                        min={0}
+                                        max={50}
+                                        step={1}
+                                        className="w-full"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-mono text-muted-foreground uppercase">Outline X</Label>
+                                        <span className="text-xs font-mono text-primary">{textStyle.outlineOffsetX || 0}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[textStyle.outlineOffsetX || 0]}
+                                        onValueChange={(v) => onTextStyleChange({ ...textStyle, outlineOffsetX: v[0] })}
+                                        min={-50}
+                                        max={50}
+                                        step={1}
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-mono text-muted-foreground uppercase">Outline Y</Label>
+                                        <span className="text-xs font-mono text-primary">{textStyle.outlineOffsetY || 0}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[textStyle.outlineOffsetY || 0]}
+                                        onValueChange={(v) => onTextStyleChange({ ...textStyle, outlineOffsetY: v[0] })}
+                                        min={-50}
+                                        max={50}
+                                        step={1}
+                                        className="w-full"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-mono text-muted-foreground uppercase">Gap Distance</Label>
+                                        <span className="text-xs font-mono text-primary">{textStyle.outlineGap || 0}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[textStyle.outlineGap || 0]}
+                                        onValueChange={(v) => onTextStyleChange({ ...textStyle, outlineGap: v[0] })}
+                                        min={0}
+                                        max={30}
+                                        step={1}
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-mono text-muted-foreground uppercase">Gap Color</Label>
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer relative"
+                                            style={{
+                                                backgroundColor: textStyle.outlineGapColor || 'transparent',
+                                                backgroundImage: (!textStyle.outlineGapColor || textStyle.outlineGapColor === 'transparent')
+                                                    ? 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)'
+                                                    : 'none',
+                                                backgroundSize: '8px 8px',
+                                                backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px'
+                                            }}
+                                        >
+                                            <input
+                                                type="color"
+                                                value={textStyle.outlineGapColor === 'transparent' ? '#ffffff' : textStyle.outlineGapColor}
+                                                onChange={(e) => onTextStyleChange({ ...textStyle, outlineGapColor: e.target.value })}
+                                                className="w-full h-full opacity-0 cursor-pointer"
+                                            />
+                                        </div>
+                                        <Input
+                                            value={textStyle.outlineGapColor || 'transparent'}
+                                            onChange={(e) => onTextStyleChange({ ...textStyle, outlineGapColor: e.target.value })}
+                                            className="flex-1 font-mono text-xs h-8 bg-background/50"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-mono text-muted-foreground uppercase">Outline Layering</Label>
+                                <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-lg border border-white/5">
+                                    <Button
+                                        variant={textStyle.paintFirst === 'stroke' ? "toolbar-active" : "toolbar"}
+                                        className="flex-1 text-[10px] h-7"
+                                        onClick={() => onTextStyleChange({ ...textStyle, paintFirst: 'stroke' })}
+                                    >
+                                        Behind Text (Merging)
+                                    </Button>
+                                    <Button
+                                        variant={textStyle.paintFirst === 'fill' ? "toolbar-active" : "toolbar"}
+                                        className="flex-1 text-[10px] h-7"
+                                        onClick={() => onTextStyleChange({ ...textStyle, paintFirst: 'fill' })}
+                                    >
+                                        In Front
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>

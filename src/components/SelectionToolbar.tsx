@@ -16,7 +16,12 @@ import {
   Bold,
   Italic,
   Crop,
+  Layers,
+  Ban,
+  Slash,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
@@ -51,7 +56,7 @@ interface SelectionToolbarProps {
 const QUICK_COLORS = [
   "#00d4ff", "#ff3366", "#00ff88", "#ffaa00", "#aa66ff",
   "#ff6b6b", "#4ecdc4", "#45b7d1", "#f9ca24", "#6c5ce7",
-  "#ffffff", "#000000",
+  "#ffffff", "#000000", "transparent",
 ];
 
 const FONT_FAMILIES = [
@@ -82,6 +87,8 @@ export const SelectionToolbar = ({
   const [hasSelection, setHasSelection] = useState(false);
   const [selectionType, setSelectionType] = useState<'single' | 'multiple' | 'group' | 'text' | 'image'>('single');
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [colorTarget, setColorTarget] = useState<'fill' | 'stroke'>('fill');
+  const [activeStrokeWidth, setActiveStrokeWidth] = useState(2);
 
   // Text State
   const [textContent, setTextContent] = useState("");
@@ -125,12 +132,15 @@ export const SelectionToolbar = ({
       setShowColorPicker(false);
     };
 
+    const handleObjectModified = () => {
+      updateState();
+    };
+
     canvas.on('selection:created', updateState);
     canvas.on('selection:updated', updateState);
     canvas.on('selection:cleared', handleClear);
-
-    // Listen for object modifications to keep UI in sync (optional but good for text)
-    // We avoid circular updates by checking isUpdatingRef roughly, mostly helpful for external updates
+    canvas.on('object:modified', handleObjectModified);
+    canvas.on('object:scaling', handleObjectModified);
 
     // Initial check
     updateState();
@@ -139,6 +149,8 @@ export const SelectionToolbar = ({
       canvas.off('selection:created', updateState);
       canvas.off('selection:updated', updateState);
       canvas.off('selection:cleared', handleClear);
+      canvas.off('object:modified', handleObjectModified);
+      canvas.off('object:scaling', handleObjectModified);
     };
   }, [canvas]);
 
@@ -190,16 +202,29 @@ export const SelectionToolbar = ({
     if (!canvas) return;
     const activeObjects = canvas.getActiveObjects();
     activeObjects.forEach((obj) => {
-      if (obj.type === 'line' || obj.type === 'path') {
-        obj.set({ stroke: color });
+      if (colorTarget === 'stroke') {
+        obj.set({ stroke: color === 'transparent' ? 'transparent' : color });
+        if (obj.strokeWidth === 0 && color !== 'transparent') {
+          obj.set({ strokeWidth: 2 });
+        }
       } else {
-        obj.set({ fill: color });
+        obj.set({ fill: color === 'transparent' ? 'transparent' : color });
       }
     });
     canvas.requestRenderAll();
-    setShowColorPicker(false);
+    // Don't close popover to allow more edits
     onColorChange?.(color);
-  }, [canvas, onColorChange]);
+  }, [canvas, colorTarget, onColorChange]);
+
+  const handleStrokeWidthChange = useCallback((width: number) => {
+    if (!canvas) return;
+    setActiveStrokeWidth(width);
+    const activeObjects = canvas.getActiveObjects();
+    activeObjects.forEach((obj) => {
+      obj.set({ strokeWidth: width });
+    });
+    canvas.requestRenderAll();
+  }, [canvas]);
 
   // Text Handlers
   const handleTextChange = useCallback((text: string) => {
@@ -290,19 +315,76 @@ export const SelectionToolbar = ({
                 <Palette className="w-4 h-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-2" side="bottom" align="start">
-              <div className="grid grid-cols-6 gap-1">
-                {QUICK_COLORS.map((color) => (
+            <PopoverContent className="w-64 p-3 bg-background/90 backdrop-blur-md border-panel-border shadow-2xl" side="bottom" align="start">
+              <div className="space-y-4">
+                {/* Target Toggle */}
+                <div className="flex bg-secondary/30 p-1 rounded-lg">
                   <button
-                    key={color}
                     className={cn(
-                      "w-7 h-7 rounded-full border-2 border-transparent hover:border-primary transition-colors",
-                      color === '#ffffff' && "border-muted-foreground/30"
+                      "flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
+                      colorTarget === 'fill' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-secondary/50 text-muted-foreground"
                     )}
-                    style={{ backgroundColor: color }}
-                    onClick={() => handleColorSelect(color)}
+                    onClick={() => setColorTarget('fill')}
+                  >
+                    Content / Fill
+                  </button>
+                  <button
+                    className={cn(
+                      "flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
+                      colorTarget === 'stroke' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-secondary/50 text-muted-foreground"
+                    )}
+                    onClick={() => setColorTarget('stroke')}
+                  >
+                    Border / Stroke
+                  </button>
+                </div>
+
+                {/* Quick Colors */}
+                <div className="grid grid-cols-6 gap-2">
+                  {QUICK_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      className={cn(
+                        "w-8 h-8 rounded-lg border border-white/10 hover:border-primary transition-all active:scale-95 flex items-center justify-center overflow-hidden",
+                        color === 'transparent' && "bg-secondary/20"
+                      )}
+                      style={{ backgroundColor: color !== 'transparent' ? color : 'transparent' }}
+                      onClick={() => handleColorSelect(color)}
+                      title={color}
+                    >
+                      {color === 'transparent' && <Ban className="w-4 h-4 text-destructive/60" />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Stroke Width (only for Stroke target or if wanted) */}
+                <div className="space-y-2 pt-2 border-t border-white/5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Stroke Size</Label>
+                    <span className="text-[10px] font-mono text-primary font-bold">{activeStrokeWidth}px</span>
+                  </div>
+                  <Slider
+                    value={[activeStrokeWidth]}
+                    onValueChange={(v) => handleStrokeWidthChange(v[0])}
+                    min={0}
+                    max={50}
+                    step={1}
+                    className="py-2"
                   />
-                ))}
+                  <div className="flex gap-1 pt-1 overflow-x-auto pb-1 scrollbar-none">
+                    {[1, 2, 4, 8, 12, 24].map((v) => (
+                      <Button
+                        key={v}
+                        variant="secondary"
+                        size="sm"
+                        className="h-5 text-[9px] px-1.5 min-w-[24px]"
+                        onClick={() => handleStrokeWidthChange(v)}
+                      >
+                        {v}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </PopoverContent>
           </Popover>

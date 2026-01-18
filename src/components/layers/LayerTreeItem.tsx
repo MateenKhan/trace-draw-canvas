@@ -3,7 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronRight, ChevronDown, FolderKanban, MoreVertical, Plus, Pencil, Trash2, Layers, GripVertical, Eye, EyeOff } from "lucide-react";
+import { ChevronRight, ChevronDown, FolderKanban, MoreVertical, Plus, Pencil, Trash2, Layers, GripVertical, Eye, EyeOff, Lock, Unlock } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -30,7 +30,7 @@ interface LayerTreeItemProps {
     activeObject: FabricObject | null;
     onSelectObject: (obj: FabricObject) => void;
     onToggleVisibility: (obj: FabricObject) => void;
-    onToggleLock: (obj: FabricObject) => void;
+    onToggleLock: () => void;
     onDeleteObject: (obj: FabricObject) => void;
     onDuplicateObject: (obj: FabricObject) => void;
     onRenameObject: (obj: FabricObject, name: string) => void;
@@ -79,7 +79,7 @@ export const LayerTreeItem = memo(({
     } = useSortable({
         id: node.id,
         data: { type: 'node', node },
-        disabled: !isDraggable
+        disabled: !isDraggable || node.locked
     });
 
     const style = {
@@ -312,6 +312,19 @@ export const LayerTreeItem = memo(({
 
                     {/* Visibility & Add Actions */}
                     <div className="flex items-center">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5"
+                            onClick={(e) => { e.stopPropagation(); onToggleLock(); }}
+                            title={node.locked ? "Unlock" : "Lock"}
+                        >
+                            {node.locked ? (
+                                <Lock className="w-3.5 h-3.5 text-warning" />
+                            ) : (
+                                <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
+                            )}
+                        </Button>
                         {/* We don't have visibility state on node yet, just UI */}
                         <Button
                             variant="ghost"

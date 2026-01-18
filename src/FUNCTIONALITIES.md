@@ -18,7 +18,7 @@ This file provides an index of the core functionalities and their implementation
 - **`CanvasEditor.tsx`**: The main orchestrator component that combines all hooks and UI elements.
 - **`DrawingToolbar.tsx`**: UI for selecting drawing tools and categories.
 - **`PropertyPanel.tsx`**: Controls for adjusting properties of selected objects (colors, dimensions, image filters).
-- **`TextSettingsPanel.tsx`**: Specialized popup for detailed text properties, including font, styling, spacing, and neon effects.
+- **`TextSettingsPanel.tsx`**: Specialized popup for detailed text properties, including font, styling, spacing, neon effects, text offset, and text outline (with merging, distance, and gap support).
 - **`TraceSettingsPanel.tsx`**: Settings for image-to-SVG tracing logic, including threshold, optimization, path styles, and visibility aids like Auto-Dim and Trace Glow.
 - **`LayersPanel.tsx`**: Management of canvas layers and groups.
 - **`HistoryPanel.tsx`**: UI for navigating and managing the undo history.
