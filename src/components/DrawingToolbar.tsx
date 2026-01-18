@@ -39,7 +39,7 @@ import { DrawingTool, StrokeStyle, FillStyle, TextStyle, ImageFilter } from "@/l
 import { TraceSettings } from "@/lib/tracing";
 import { ExportMenu } from "@/components/ExportMenu";
 import { Canvas as FabricCanvas } from "fabric";
-import { BottomSettingsPanel } from "@/components/BottomSettingsPanel";
+
 import {
   Dialog,
   DialogContent,
@@ -205,24 +205,7 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
       <div className="w-full flex justify-center pointer-events-auto">
         <div className="w-full max-w-3xl px-4 animate-slide-up">
 
-          {/* Settings Popup */}
-          {activeCategory === 'settings' && (
-            <BottomSettingsPanel
-              stroke={props.stroke}
-              fill={props.fill}
-              textStyle={props.textStyle}
-              imageFilter={props.imageFilter}
-              traceSettings={props.traceSettings}
-              onStrokeChange={props.onStrokeChange}
-              onFillChange={props.onFillChange}
-              onTextStyleChange={props.onTextStyleChange}
-              onImageFilterChange={props.onImageFilterChange}
-              onTraceSettingsChange={props.onTraceSettingsChange}
-              maxHistory={props.maxHistory}
-              onMaxHistoryChange={props.onMaxHistoryChange}
-              onDeleteAll={props.onDeleteAll}
-            />
-          )}
+          {/* Settings Popup - REMOVED, Handled by CanvasEditor overlay */}
 
           {/* Sub-toolbar container */}
           {['select', 'draw', 'shapes', 'image', 'text'].includes(activeCategory || '') && (
@@ -435,7 +418,7 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
             icon={Settings2}
             label="Settings"
             isActive={activeCategory === 'settings'}
-            onClick={() => handleCategoryClick('settings')}
+            onClick={props.onToggleSettings}
           />
 
           <button
