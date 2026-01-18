@@ -14,6 +14,7 @@ import { ImageUploadDialog } from "@/components/ImageUploadDialog";
 import { LayersPanel } from "@/components/LayersPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { ToolpathOverlay } from "@/components/ToolpathOverlay";
+import { ImageCropper } from "@/components/ImageCropper";
 import { ProjectsPanel } from "@/components/ProjectsPanel";
 import { ProjectHistoryPanel } from "@/components/ProjectHistoryPanel";
 
@@ -192,6 +193,34 @@ const CanvasEditor = () => {
     stroke,
     fill,
   });
+
+  // Image Cropping State
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<any | null>(null);
+
+  const handleStartCrop = useCallback(() => {
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj || activeObj.type !== 'image') return;
+
+    // Get full quality source
+    const src = (activeObj as any).getSrc();
+    setCropImageSrc(src);
+    setCropTarget(activeObj);
+    setIsCropperOpen(true);
+  }, [canvas]);
+
+  const handleCropComplete = useCallback((newSrc: string) => {
+    if (!canvas || !cropTarget) return;
+
+    cropTarget.setSrc(newSrc, () => {
+      cropTarget.setCoords();
+      canvas.requestRenderAll();
+      saveState();
+      toast.success("Image cropped");
+    });
+  }, [canvas, cropTarget, saveState]);
 
   // Handle tool change - modified to support both tap-to-place and drag-to-draw
   const handleToolChange = useCallback((tool: DrawingTool) => {
@@ -831,6 +860,7 @@ const CanvasEditor = () => {
               onSendBackward={sendBackward}
               onUndo={undo}
               onRedo={redo}
+              onCrop={handleStartCrop}
               canUndo={canUndo}
               canRedo={canRedo}
               hideToolbar={showLayersPanel}
@@ -901,6 +931,7 @@ const CanvasEditor = () => {
           onReset={resetView}
           onUpload={handleUploadClick}
           onTrace={handleTrace}
+          onCrop={handleStartCrop}
           onDeleteSelected={deleteSelected}
           canDeleteSelected={canDeleteSelected}
           onFullscreen={handleFullscreen}
@@ -1029,6 +1060,12 @@ const CanvasEditor = () => {
       )}
 
       <ImageUploadDialog open={showImageUpload} onOpenChange={setShowImageUpload} onFileSelect={handleFileSelect} />
+      <ImageCropper
+        isOpen={isCropperOpen}
+        onOpenChange={setIsCropperOpen}
+        imageUrl={cropImageSrc}
+        onCropComplete={handleCropComplete}
+      />
       <Suspense fallback={null}>
         {showGCodePanel && (
           <GCodeDialog

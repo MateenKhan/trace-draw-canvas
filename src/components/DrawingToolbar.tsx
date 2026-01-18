@@ -57,6 +57,7 @@ interface DrawingToolbarProps {
   onReset: () => void;
   onUpload: () => void;
   onTrace: () => void;
+  onCrop?: () => void;
   onDeleteSelected: () => void;
   canDeleteSelected: boolean;
   onFullscreen: () => void;
@@ -331,6 +332,12 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
                     disabled={!props.hasImage}
                     isActive={props.isTracing}
                     onClick={props.onTrace}
+                  />
+                  <SubToolButton
+                    icon={Crop}
+                    label="Crop"
+                    disabled={!props.hasImage}
+                    onClick={props.onCrop}
                   />
                 </>
               )}
