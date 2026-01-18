@@ -7,7 +7,10 @@ import {
   Path,
   Polygon,
   IText,
-  FabricObject
+  FabricObject,
+  Shadow,
+  loadSVGFromString,
+  Group
 } from "fabric";
 import { DrawingTool, StrokeStyle, FillStyle, TextStyle } from "@/lib/types";
 
@@ -152,6 +155,12 @@ export const useDrawingTools = ({
       fill: textStyle.fill,
       charSpacing: textStyle.letterSpacing * 10,
       lineHeight: textStyle.lineHeight,
+      shadow: textStyle.glowColor !== 'transparent' && textStyle.glowBlur > 0 ? new Shadow({
+        color: textStyle.glowColor,
+        blur: textStyle.glowBlur,
+        offsetX: 0,
+        offsetY: 0,
+      }) : null,
       selectable: true,
       hasControls: true,
       hasBorders: true,
@@ -249,6 +258,12 @@ export const useDrawingTools = ({
           fill: newStyle.fill,
           charSpacing: newStyle.letterSpacing * 10,
           lineHeight: newStyle.lineHeight,
+          shadow: newStyle.glowColor !== 'transparent' && newStyle.glowBlur > 0 ? new Shadow({
+            color: newStyle.glowColor,
+            blur: newStyle.glowBlur,
+            offsetX: 0,
+            offsetY: 0,
+          }) : null,
         });
       }
     });
@@ -276,6 +291,34 @@ export const useDrawingTools = ({
     }
   }, [canvas]);
 
+  const addSVG = useCallback(async (svgString: string) => {
+    if (!canvas) return;
+    try {
+      const { objects } = await loadSVGFromString(svgString);
+      const validObjects = objects.filter((o): o is FabricObject => !!o);
+
+      const group = new Group(validObjects);
+
+      // Ensure it's selectable and has an ID for the layers panel
+      group.set({
+        left: canvas.getWidth() / 2 - (group.getScaledWidth() / 2),
+        top: canvas.getHeight() / 2 - (group.getScaledHeight() / 2),
+        selectable: true,
+        hasControls: true,
+        hasBorders: true,
+        // @ts-ignore
+        id: `shape_trace_${Math.random().toString(36).substr(2, 9)}`,
+      });
+
+      canvas.add(group);
+      canvas.setActiveObject(group);
+      canvas.renderAll();
+      return group;
+    } catch (error) {
+      console.error("Error loading SVG:", error);
+    }
+  }, [canvas]);
+
   return {
     addRectangle,
     addEllipse,
@@ -290,5 +333,6 @@ export const useDrawingTools = ({
     updateSelectedTextStyle,
     bringForward,
     sendBackward,
+    addSVG,
   };
 };

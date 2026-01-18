@@ -11,6 +11,8 @@ export interface TraceSettings {
   color: string;
   fillColor: string;
   strokeWidth: number;
+  autoDim: boolean;
+  showGlow: boolean;
 }
 
 export const defaultTraceSettings: TraceSettings = {
@@ -23,7 +25,9 @@ export const defaultTraceSettings: TraceSettings = {
   blackOnWhite: true,
   color: "#00d4ff",
   fillColor: "transparent",
-  strokeWidth: 1,
+  strokeWidth: 2,
+  autoDim: true,
+  showGlow: true,
 };
 
 // Use potrace-wasm for high-quality tracing
@@ -39,7 +43,7 @@ export const traceImageToSVG = async (
   tempCanvas.width = width;
   tempCanvas.height = height;
   const ctx = tempCanvas.getContext("2d");
-  
+
   if (!ctx) {
     throw new Error("Could not get canvas context");
   }
@@ -51,10 +55,10 @@ export const traceImageToSVG = async (
     const g = data[i + 1];
     const b = data[i + 2];
     const a = data[i + 3];
-    
+
     // Calculate grayscale
     const gray = (r + g + b) / 3;
-    
+
     // Apply threshold
     let isBlack: boolean;
     if (a < 128) {
@@ -63,7 +67,7 @@ export const traceImageToSVG = async (
     } else {
       isBlack = blackOnWhite ? gray < threshold : gray >= threshold;
     }
-    
+
     // Set pixel to black or white
     const value = isBlack ? 0 : 255;
     processedData.data[i] = value;
@@ -77,7 +81,7 @@ export const traceImageToSVG = async (
   try {
     // Use potrace-wasm for tracing
     const svg = await loadFromCanvas(tempCanvas);
-    
+
     // Parse and modify the SVG to apply our custom styles
     const parser = new DOMParser();
     const doc = parser.parseFromString(svg, "image/svg+xml");
@@ -138,9 +142,9 @@ async function fallbackTrace(
   let pathD = "";
   for (const contour of contours) {
     if (contour.length < 3) continue;
-    
+
     const simplified = douglasPeucker(contour, settings.optTolerance * 2);
-    
+
     pathD += `M ${simplified[0].x.toFixed(1)} ${simplified[0].y.toFixed(1)} `;
     for (let i = 1; i < simplified.length; i++) {
       pathD += `L ${simplified[i].x.toFixed(1)} ${simplified[i].y.toFixed(1)} `;
@@ -243,7 +247,7 @@ function getNextDirection(cellType: number, currentDir: number): number {
     1: 3, 2: 0, 3: 0, 4: 1, 5: 3, 6: 1, 7: 0,
     8: 2, 9: 2, 10: 1, 11: 2, 12: 1, 13: 3, 14: 1,
   };
-  
+
   return directions[cellType] ?? currentDir;
 }
 

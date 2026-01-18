@@ -74,6 +74,9 @@ export const useCanvasSync = ({
                         fontStyle: textObj.fontStyle || prev.fontStyle,
                         textAlign: textObj.textAlign || prev.textAlign,
                         fill: textObj.fill as string || prev.fill,
+                        glowColor: textObj.shadow?.color || 'transparent',
+                        glowBlur: textObj.shadow?.blur || 0,
+                        content: textObj.text || '',
                     };
                 });
             }

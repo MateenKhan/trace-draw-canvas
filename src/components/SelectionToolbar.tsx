@@ -257,30 +257,7 @@ export const SelectionToolbar = ({
           {/* Vertical Divider */}
           <div className="w-px h-5 bg-panel-border mx-1" />
 
-          {/* Text Tools */}
-          {selectionType === 'text' && (
-            <>
-              <Input
-                value={textContent}
-                onChange={(e) => handleTextChange(e.target.value)}
-                className="h-8 w-32 px-2 text-xs bg-transparent border-transparent hover:border-input focus:border-primary transition-colors"
-                placeholder="Text"
-              />
-              <Select value={fontFamily} onValueChange={handleFontChange}>
-                <SelectTrigger className="h-8 w-24 text-xs">
-                  <SelectValue placeholder="Font" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FONT_FAMILIES.map(font => (
-                    <SelectItem key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-                      {font.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="w-px h-5 bg-panel-border mx-1" />
-            </>
-          )}
+
 
           {/* Image Tools */}
           {selectionType === 'image' && (
