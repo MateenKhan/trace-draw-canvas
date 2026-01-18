@@ -77,6 +77,8 @@ interface DrawingToolbarProps {
   showLayersPanel?: boolean;
   onToggleProjects?: () => void;
   onToggleHistory?: () => void;
+  onToggleText?: () => void;
+  showTextPanel?: boolean;
 
   // Settings props
   stroke: StrokeStyle;
@@ -149,6 +151,11 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
     }
     if (cat === 'projects') {
       props.onToggleProjects?.();
+      return;
+    }
+    if (cat === 'text') {
+      props.onToggleText?.();
+      onCategoryChange(cat);
       return;
     }
 
@@ -327,12 +334,21 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
 
               {/* Text Tools */}
               {activeCategory === 'text' && (
-                <SubToolButton
-                  icon={Type}
-                  label="Add Text"
-                  isActive={props.activeTool === 'text'}
-                  onClick={() => props.onToolChange('text')}
-                />
+                <>
+                  <SubToolButton
+                    icon={Type}
+                    label="Add Text"
+                    isActive={props.activeTool === 'text'}
+                    onClick={() => props.onToolChange('text')}
+                  />
+                  <div className="w-px h-6 bg-white/10 mx-1" />
+                  <SubToolButton
+                    icon={Settings2}
+                    label="Text Settings"
+                    isActive={props.showTextPanel}
+                    onClick={props.onToggleText}
+                  />
+                </>
               )}
             </div>
           )}

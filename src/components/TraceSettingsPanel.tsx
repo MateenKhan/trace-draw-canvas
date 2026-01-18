@@ -1,17 +1,22 @@
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { TraceSettings } from "@/lib/tracing";
-import { Settings2, Palette, Sliders, Wand2 } from "lucide-react";
+import { Settings2, Palette, Sliders, Wand2, Eye } from "lucide-react";
 
 interface TraceSettingsPanelProps {
   settings: TraceSettings;
   onSettingsChange: (settings: TraceSettings) => void;
+  onApplyTrace?: () => void;
+  hasTrace?: boolean;
 }
 
 export const TraceSettingsPanel = ({
   settings,
   onSettingsChange,
+  onApplyTrace,
+  hasTrace,
 }: TraceSettingsPanelProps) => {
   const updateSetting = <K extends keyof TraceSettings>(
     key: K,
@@ -26,7 +31,7 @@ export const TraceSettingsPanel = ({
         <Settings2 className="w-4 h-4" />
         Trace Settings
       </div>
-      
+
       <div className="p-3 md:p-4 space-y-5 md:space-y-6 scrollbar-thin max-h-[calc(100vh-200px)] overflow-y-auto">
         {/* Detection Section */}
         <div className="space-y-3 md:space-y-4">
@@ -34,7 +39,7 @@ export const TraceSettingsPanel = ({
             <Sliders className="w-3 h-3" />
             Detection
           </div>
-          
+
           <div className="space-y-3">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -87,7 +92,7 @@ export const TraceSettingsPanel = ({
             <Wand2 className="w-3 h-3" />
             Optimization
           </div>
-          
+
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2">
               <Label className="text-sm">Smooth Curves</Label>
@@ -140,7 +145,7 @@ export const TraceSettingsPanel = ({
             <Palette className="w-3 h-3" />
             Style
           </div>
-          
+
           <div className="space-y-3">
             <div className="space-y-2">
               <Label className="text-sm">Stroke Color</Label>
@@ -168,11 +173,10 @@ export const TraceSettingsPanel = ({
                 />
                 <button
                   onClick={() => updateSetting("fillColor", "transparent")}
-                  className={`px-2 py-1 text-xs font-mono rounded border transition-colors ${
-                    settings.fillColor === "transparent"
-                      ? "border-primary text-primary bg-primary/10"
-                      : "border-panel-border text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`px-2 py-1 text-xs font-mono rounded border transition-colors ${settings.fillColor === "transparent"
+                    ? "border-primary text-primary bg-primary/10"
+                    : "border-panel-border text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   None
                 </button>
@@ -196,6 +200,54 @@ export const TraceSettingsPanel = ({
             </div>
           </div>
         </div>
+
+        {/* Visibility Section */}
+        <div className="space-y-3 md:space-y-4">
+          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground uppercase tracking-wider">
+            <Eye className="w-3 h-3" />
+            Visibility
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-1">
+              <div className="space-y-1">
+                <Label className="text-sm">Auto Dim Background</Label>
+                <p className="text-[10px] text-muted-foreground">Fade image while tracing</p>
+              </div>
+              <Switch
+                checked={settings.autoDim}
+                onCheckedChange={(v) => updateSetting("autoDim", v)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between py-1">
+              <div className="space-y-1">
+                <Label className="text-sm">Trace Glow</Label>
+                <p className="text-[10px] text-muted-foreground">Add path shadow for visibility</p>
+              </div>
+              <Switch
+                checked={settings.showGlow}
+                onCheckedChange={(v) => updateSetting("showGlow", v)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Section */}
+        {hasTrace && (
+          <div className="pt-2 border-t border-white/5 space-y-3">
+            <Button
+              onClick={onApplyTrace}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 flex items-center justify-center gap-2 h-11 rounded-xl font-bold uppercase tracking-wider"
+            >
+              <Wand2 className="w-5 h-5" />
+              Add Trace to Canvas
+            </Button>
+            <p className="text-[10px] text-center text-muted-foreground">
+              Add the current trace as a selectable shape
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

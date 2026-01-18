@@ -42,6 +42,10 @@ export interface TextStyle {
   fill: string;
   stroke?: string;
   strokeWidth?: number;
+  glowColor?: string;
+  glowBlur?: number;
+  glowWidth?: number;
+  content?: string;
 }
 
 export interface ImageFilter {
@@ -67,6 +71,7 @@ export const FONT_FAMILIES = [
   { name: 'Ubuntu', value: 'Ubuntu' },
   { name: 'Quicksand', value: 'Quicksand' },
   { name: 'JetBrains Mono', value: 'JetBrains Mono' },
+  { name: 'Andalucia', value: 'Andalucia' },
 ] as const;
 
 export const DEFAULT_STROKE: StrokeStyle = {
@@ -88,6 +93,8 @@ export const DEFAULT_TEXT_STYLE: TextStyle = {
   letterSpacing: 0,
   lineHeight: 1.2,
   fill: '#ffffff',
+  glowColor: 'transparent',
+  glowBlur: 0,
 };
 
 export const DEFAULT_IMAGE_FILTER: ImageFilter = {

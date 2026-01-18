@@ -5,10 +5,12 @@ import { useImageEditing } from "@/hooks/useImageEditing";
 import { useMobileDrawing } from "@/hooks/useMobileDrawing";
 import { useSplineTool } from "@/hooks/useSplineTool";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
+import { useCanvasSync } from "@/hooks/useCanvasSync";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DrawingToolbar, DockCategory } from "@/components/DrawingToolbar";
 import { PropertyPanel } from "@/components/PropertyPanel";
 import { TraceSettingsPanel } from "@/components/TraceSettingsPanel";
+import { TextSettingsPanel } from "@/components/TextSettingsPanel";
 import { SvgPreview } from "@/components/SvgPreview";
 import { ImageUploadDialog } from "@/components/ImageUploadDialog";
 import { LayersPanel } from "@/components/LayersPanel";
@@ -98,6 +100,7 @@ const CanvasEditor = () => {
   // UI state
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [activePanel, setActivePanel] = useState<"properties" | "trace">("properties");
+  const [showTextPanel, setShowTextPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showGCodePanel, setShowGCodePanel] = useState(false);
@@ -178,7 +181,21 @@ const CanvasEditor = () => {
     updateSelectedTextStyle,
     bringForward,
     sendBackward,
+    addSVG,
   } = useDrawingTools({ canvas, stroke, fill, textStyle });
+
+  const handleApplyTrace = async () => {
+    if (!svgContent) return;
+    try {
+      await addSVG(svgContent);
+      setSvgContent(null);
+      setShowSvgOverlay(false);
+      toast.success("Trace added to canvas");
+    } catch (error) {
+      console.error("Apply trace error:", error);
+      toast.error("Failed to add trace to canvas");
+    }
+  };
 
   // Image editing hook
   const { applyFilters } = useImageEditing({ canvas });
@@ -684,88 +701,15 @@ const CanvasEditor = () => {
     }
   }, [showGCodePanel, showMobileSimulation, canvas, extractToolPaths]);
 
-  // Track selection + canvas content so mobile can enable/disable buttons correctly
-  useEffect(() => {
-    if (!canvas) return;
-
-    const sync = () => {
-      const activeObjects = canvas.getActiveObjects();
-      setCanDeleteSelected(activeObjects.length > 0);
-
-      if (activeObjects.length === 1) {
-        const obj = activeObjects[0];
-
-        // Sync Stroke
-        if (obj.stroke) {
-          setStroke(prev => {
-            const newColor = obj.stroke as string;
-            const newWidth = obj.strokeWidth || prev.width;
-            if (prev.color === newColor && prev.width === newWidth) return prev;
-            return { ...prev, color: newColor, width: newWidth };
-          });
-        }
-
-        // Sync Fill
-        if (obj.fill) {
-          setFill(prev => {
-            const newColor = obj.fill === 'transparent' ? 'transparent' : obj.fill as string;
-            const newOpacity = obj.opacity ?? 1;
-            if (prev.color === newColor && prev.opacity === newOpacity) return prev;
-            return { ...prev, color: newColor, opacity: newOpacity };
-          });
-        }
-
-        // Sync Text Style
-        if (obj.type === 'i-text' || obj.type === 'text') {
-          const textObj = obj as any;
-          setTextStyle(prev => {
-            if (
-              prev.fontFamily === textObj.fontFamily &&
-              prev.fontSize === textObj.fontSize &&
-              prev.fontWeight === textObj.fontWeight &&
-              prev.fontStyle === textObj.fontStyle &&
-              prev.textAlign === textObj.textAlign &&
-              prev.fill === (textObj.fill as string)
-            ) return prev;
-
-            return {
-              ...prev,
-              fontFamily: textObj.fontFamily || prev.fontFamily,
-              fontSize: textObj.fontSize || prev.fontSize,
-              fontWeight: textObj.fontWeight || prev.fontWeight,
-              fontStyle: textObj.fontStyle || prev.fontStyle,
-              textAlign: textObj.textAlign || prev.textAlign,
-              fill: textObj.fill as string || prev.fill,
-            };
-          });
-        }
-      }
-    };
-
-    sync();
-
-    canvas.on('selection:created', sync);
-    canvas.on('selection:updated', sync);
-    canvas.on('selection:cleared', sync);
-    canvas.on('object:added', sync);
-    canvas.on('object:removed', sync);
-    canvas.on('object:modified', sync);
-    canvas.on('object:moving', sync);
-    canvas.on('object:scaling', sync);
-    canvas.on('object:rotating', sync);
-
-    return () => {
-      canvas.off('selection:created', sync);
-      canvas.off('selection:updated', sync);
-      canvas.off('selection:cleared', sync);
-      canvas.off('object:added', sync);
-      canvas.off('object:removed', sync);
-      canvas.off('object:modified', sync);
-      canvas.off('object:moving', sync);
-      canvas.off('object:scaling', sync);
-      canvas.off('object:rotating', sync);
-    };
-  }, [canvas]);
+  // Sync selection + canvas content
+  useCanvasSync({
+    canvas,
+    setStroke,
+    setFill,
+    setTextStyle,
+    setCanDeleteSelected,
+    onTextSelect: () => setShowTextPanel(true),
+  });
 
   // Handle Full History Clear (Memory + Storage)
   const handleClearAllHistory = useCallback(() => {
@@ -945,7 +889,12 @@ const CanvasEditor = () => {
                     />
                   </TabsContent>
                   <TabsContent value="trace" className="p-4 m-0 h-full">
-                    <TraceSettingsPanel settings={traceSettings} onSettingsChange={setTraceSettings} />
+                    <TraceSettingsPanel
+                      settings={traceSettings}
+                      onSettingsChange={setTraceSettings}
+                      onApplyTrace={handleApplyTrace}
+                      hasTrace={!!svgContent}
+                    />
                     {svgContent && <div className="mt-4"><SvgPreview svgContent={svgContent} showPreview={showSvgOverlay} onTogglePreview={() => setShowSvgOverlay(!showSvgOverlay)} /></div>}
                   </TabsContent>
                   <TabsContent value="app" className="p-0 m-0 h-full">
@@ -999,7 +948,10 @@ const CanvasEditor = () => {
           >
             <canvas
               ref={canvasRef}
-              className="max-w-full max-h-full shadow-2xl"
+              className={cn(
+                "max-w-full max-h-full shadow-2xl transition-opacity duration-300",
+                hasImage && traceSettings.autoDim && (activePanel === 'trace' || activeDockCategory === 'image') && "opacity-40"
+              )}
               style={{
                 touchAction: 'none'
               }}
@@ -1007,8 +959,18 @@ const CanvasEditor = () => {
 
             {/* SVG trace overlay */}
             {svgContent && showSvgOverlay && hasImage && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center" style={{ mixBlendMode: "normal" }}>
-                <div dangerouslySetInnerHTML={{ __html: svgContent }} className="max-w-full max-h-full w-full h-full [&_svg]:w-full [&_svg]:h-full" style={{ width: canvas?.getWidth(), height: canvas?.getHeight() }} />
+              <div
+                className={cn(
+                  "absolute inset-0 pointer-events-none flex items-center justify-center",
+                  traceSettings.showGlow && "drop-shadow-[0_0_2px_rgba(0,0,0,0.8)]"
+                )}
+                style={{ mixBlendMode: "normal" }}
+              >
+                <div
+                  dangerouslySetInnerHTML={{ __html: svgContent }}
+                  className="max-w-full max-h-full w-full h-full [&_svg]:w-full [&_svg]:h-full"
+                  style={{ width: canvas?.getWidth(), height: canvas?.getHeight() }}
+                />
               </div>
             )}
 
@@ -1091,6 +1053,8 @@ const CanvasEditor = () => {
           showLayersPanel={showLayersPanel}
           onToggleProjects={() => setShowProjectsPanel(!showProjectsPanel)}
           onToggleHistory={() => setShowHistoryPanel(!showHistoryPanel)}
+          onToggleText={() => setShowTextPanel(!showTextPanel)}
+          showTextPanel={showTextPanel}
 
           stroke={stroke}
           fill={fill}
@@ -1238,6 +1202,14 @@ const CanvasEditor = () => {
         onClose={() => setShowProjectHistoryPanel(false)}
         project={viewingProjectId ? getProject(viewingProjectId) : null}
         onRestoreSnapshot={handleRestoreProjectSnapshot}
+      />
+
+      {/* Text Settings Panel Overlay */}
+      <TextSettingsPanel
+        isVisible={showTextPanel}
+        onClose={() => setShowTextPanel(false)}
+        textStyle={textStyle}
+        onTextStyleChange={handleTextStyleChange}
       />
     </div>
   );
