@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Canvas as FabricCanvas, FabricObject } from "fabric";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Trash2,
   Copy,
@@ -9,12 +10,24 @@ import {
   ArrowDown,
   Undo2,
   Redo2,
+  Group,
+  Ungroup,
+  Type,
+  Bold,
+  Italic,
 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface SelectionToolbarProps {
@@ -26,6 +39,8 @@ interface SelectionToolbarProps {
   onSendBackward?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
+  onGroup?: () => void;
+  onUngroup?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   hideToolbar?: boolean;
@@ -37,6 +52,15 @@ const QUICK_COLORS = [
   "#ffffff", "#000000",
 ];
 
+const FONT_FAMILIES = [
+  { value: "Inter", label: "Inter" },
+  { value: "Arial", label: "Arial" },
+  { value: "Times New Roman", label: "Times" },
+  { value: "Courier New", label: "Courier" },
+  { value: "Georgia", label: "Georgia" },
+  { value: "Verdana", label: "Verdana" },
+];
+
 export const SelectionToolbar = ({
   canvas,
   onDelete,
@@ -46,84 +70,75 @@ export const SelectionToolbar = ({
   onSendBackward,
   onUndo,
   onRedo,
+  onGroup,
+  onUngroup,
   canUndo = false,
   canRedo = false,
   hideToolbar = false,
 }: SelectionToolbarProps) => {
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
+  const [selectionType, setSelectionType] = useState<'single' | 'multiple' | 'group' | 'text'>('single');
   const [showColorPicker, setShowColorPicker] = useState(false);
 
-  const updatePosition = useCallback(() => {
-    if (!canvas) return;
-
-    const activeObject = canvas.getActiveObject();
-    if (!activeObject) {
-      setHasSelection(false);
-      setPosition(null);
-      return;
-    }
-
-    setHasSelection(true);
-
-    // Get bounding rect of selection
-    const bound = activeObject.getBoundingRect();
-    const canvasEl = canvas.getElement();
-    const rect = canvasEl.getBoundingClientRect();
-    const zoom = canvas.getZoom();
-    const vpt = canvas.viewportTransform;
-
-    if (!vpt) return;
-
-    // Calculate position above the selected object
-    const x = rect.left + bound.left * zoom + vpt[4] + (bound.width * zoom) / 2;
-    const y = rect.top + bound.top * zoom + vpt[5] - 60;
-
-    // Ensure toolbar stays within viewport with safety margins
-    const margin = 12;
-    const clampedX = Math.max(margin + 50, Math.min(x, window.innerWidth - (margin + 50)));
-    const clampedY = Math.max(margin + 40, y);
-
-    setPosition({ x: clampedX, y: clampedY });
-  }, [canvas]);
+  // Text State
+  const [textContent, setTextContent] = useState("");
+  const [fontFamily, setFontFamily] = useState("Inter");
+  const isUpdatingRef = useRef(false);
 
   useEffect(() => {
     if (!canvas) return;
 
-    const handleSelection = () => {
-      updatePosition();
+    const updateState = () => {
+      const activeObj = canvas.getActiveObject();
+      const activeObjects = canvas.getActiveObjects();
+
+      if (!activeObj) {
+        setHasSelection(false);
+        return;
+      }
+
+      setHasSelection(true);
+
+      // Determine Selection Type
+      if (activeObjects.length > 1) {
+        setSelectionType('multiple');
+      } else if (activeObj.type === 'group') {
+        setSelectionType('group');
+      } else if (activeObj.type === 'i-text' || activeObj.type === 'text') {
+        setSelectionType('text');
+        if (!isUpdatingRef.current) {
+          setTextContent((activeObj as any).text || "");
+          setFontFamily((activeObj as any).fontFamily || "Inter");
+        }
+      } else {
+        setSelectionType('single');
+      }
     };
 
     const handleClear = () => {
       setHasSelection(false);
-      setPosition(null);
       setShowColorPicker(false);
     };
 
-    const handleModified = () => {
-      updatePosition();
-    };
-
-    canvas.on('selection:created', handleSelection);
-    canvas.on('selection:updated', handleSelection);
+    canvas.on('selection:created', updateState);
+    canvas.on('selection:updated', updateState);
     canvas.on('selection:cleared', handleClear);
-    canvas.on('object:moving', handleModified);
-    canvas.on('object:scaling', handleModified);
-    canvas.on('object:rotating', handleModified);
+
+    // Listen for object modifications to keep UI in sync (optional but good for text)
+    // We avoid circular updates by checking isUpdatingRef roughly, mostly helpful for external updates
+
+    // Initial check
+    updateState();
 
     return () => {
-      canvas.off('selection:created', handleSelection);
-      canvas.off('selection:updated', handleSelection);
+      canvas.off('selection:created', updateState);
+      canvas.off('selection:updated', updateState);
       canvas.off('selection:cleared', handleClear);
-      canvas.off('object:moving', handleModified);
-      canvas.off('object:scaling', handleModified);
-      canvas.off('object:rotating', handleModified);
     };
-  }, [canvas, updatePosition]);
+  }, [canvas]);
 
   const handleDuplicate = useCallback(() => {
     if (!canvas) return;
-
     const activeObject = canvas.getActiveObject();
     if (!activeObject) return;
 
@@ -134,113 +149,195 @@ export const SelectionToolbar = ({
       });
       canvas.add(cloned);
       canvas.setActiveObject(cloned);
-      canvas.renderAll();
+      canvas.requestRenderAll();
     });
-
     onDuplicate?.();
   }, [canvas, onDuplicate]);
 
+  const handleGroup = useCallback(() => {
+    if (onGroup) {
+      onGroup();
+      return;
+    }
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj || activeObj.type !== 'activeSelection') return;
+    (activeObj as any).toGroup();
+    canvas.requestRenderAll();
+    // Fire event to notify listeners (like LayersPanel)
+    canvas.fire('selection:created', { selected: [canvas.getActiveObject()] } as any);
+  }, [canvas, onGroup]);
+
+  const handleUngroup = useCallback(() => {
+    if (onUngroup) {
+      onUngroup();
+      return;
+    }
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj || activeObj.type !== 'group') return;
+    (activeObj as any).toActiveSelection();
+    canvas.requestRenderAll();
+    canvas.fire('selection:created', { selected: canvas.getActiveObjects() } as any);
+  }, [canvas, onUngroup]);
+
   const handleColorSelect = useCallback((color: string) => {
     if (!canvas) return;
-
     const activeObjects = canvas.getActiveObjects();
     activeObjects.forEach((obj) => {
-      // For strokes on lines, update stroke; for shapes, update fill
-      if (obj.type === 'line') {
+      if (obj.type === 'line' || obj.type === 'path') {
         obj.set({ stroke: color });
       } else {
         obj.set({ fill: color });
       }
     });
-    canvas.renderAll();
+    canvas.requestRenderAll();
     setShowColorPicker(false);
     onColorChange?.(color);
   }, [canvas, onColorChange]);
 
-  if (!hasSelection || !position || hideToolbar) return null;
+  // Text Handlers
+  const handleTextChange = useCallback((text: string) => {
+    setTextContent(text);
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (activeObj && (activeObj.type === 'i-text' || activeObj.type === 'text')) {
+      isUpdatingRef.current = true;
+      (activeObj as any).set('text', text);
+      canvas.requestRenderAll();
+      isUpdatingRef.current = false;
+    }
+  }, [canvas]);
+
+  const handleFontChange = useCallback((font: string) => {
+    setFontFamily(font);
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (activeObj && (activeObj.type === 'i-text' || activeObj.type === 'text')) {
+      (activeObj as any).set('fontFamily', font);
+      canvas.requestRenderAll();
+    }
+  }, [canvas]);
+
+
+  if (hideToolbar) return null;
 
   return (
-    <div
-      className="fixed z-[100] flex items-center gap-1 p-1.5 glass rounded-xl border border-panel-border shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-w-[calc(100vw-24px)] overflow-x-auto no-scrollbar"
-      style={{
-        left: position.x,
-        top: position.y,
-        transform: 'translateX(-50%)',
-        touchAction: 'pan-x'
-      }}
-    >
-      {/* Color picker */}
-      <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
-        <PopoverTrigger asChild>
-          <Button variant="toolbar" size="icon" className="w-9 h-9">
-            <Palette className="w-4 h-4" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-2" side="top">
-          <div className="grid grid-cols-6 gap-1">
-            {QUICK_COLORS.map((color) => (
-              <button
-                key={color}
-                className={cn(
-                  "w-7 h-7 rounded-full border-2 border-transparent hover:border-primary transition-colors",
-                  color === '#ffffff' && "border-muted-foreground/30"
-                )}
-                style={{ backgroundColor: color }}
-                onClick={() => handleColorSelect(color)}
+    <div className="flex items-center gap-1 p-1.5 glass rounded-xl border border-panel-border shadow-2xl transition-all duration-300 ease-in-out">
+
+      {/* Undo/Redo - Always Visible */}
+      <div className="flex items-center gap-1">
+        <Button
+          variant="toolbar"
+          size="icon"
+          className="w-9 h-9"
+          onClick={onUndo}
+          disabled={!canUndo}
+        >
+          <Undo2 className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="toolbar"
+          size="icon"
+          className="w-9 h-9"
+          onClick={onRedo}
+          disabled={!canRedo}
+        >
+          <Redo2 className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {hasSelection && (
+        <div className="flex items-center gap-1 animate-in slide-in-from-left-2 fade-in duration-300">
+          {/* Vertical Divider */}
+          <div className="w-px h-5 bg-panel-border mx-1" />
+
+          {/* Text Tools */}
+          {selectionType === 'text' && (
+            <>
+              <Input
+                value={textContent}
+                onChange={(e) => handleTextChange(e.target.value)}
+                className="h-8 w-32 px-2 text-xs bg-transparent border-transparent hover:border-input focus:border-primary transition-colors"
+                placeholder="Text"
               />
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
+              <Select value={fontFamily} onValueChange={handleFontChange}>
+                <SelectTrigger className="h-8 w-24 text-xs">
+                  <SelectValue placeholder="Font" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FONT_FAMILIES.map(font => (
+                    <SelectItem key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                      {font.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="w-px h-5 bg-panel-border mx-1" />
+            </>
+          )}
 
-      <div className="w-px h-5 bg-panel-border" />
+          {/* Grouping Tools */}
+          {selectionType === 'multiple' && (
+            <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={handleGroup} title="Group">
+              <Group className="w-4 h-4" />
+            </Button>
+          )}
+          {selectionType === 'group' && (
+            <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={handleUngroup} title="Ungroup">
+              <Ungroup className="w-4 h-4" />
+            </Button>
+          )}
 
-      {/* Duplicate */}
-      <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={handleDuplicate}>
-        <Copy className="w-4 h-4" />
-      </Button>
+          {/* Standard Tools (Color, Dupe, Order, Delete) */}
 
-      {/* Layer order */}
-      <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={onBringForward}>
-        <ArrowUp className="w-4 h-4" />
-      </Button>
-      <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={onSendBackward}>
-        <ArrowDown className="w-4 h-4" />
-      </Button>
+          {/* Color picker */}
+          <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
+            <PopoverTrigger asChild>
+              <Button variant="toolbar" size="icon" className="w-9 h-9">
+                <Palette className="w-4 h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="bottom" align="start">
+              <div className="grid grid-cols-6 gap-1">
+                {QUICK_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={cn(
+                      "w-7 h-7 rounded-full border-2 border-transparent hover:border-primary transition-colors",
+                      color === '#ffffff' && "border-muted-foreground/30"
+                    )}
+                    style={{ backgroundColor: color }}
+                    onClick={() => handleColorSelect(color)}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
 
-      <div className="w-px h-5 bg-panel-border" />
+          <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={handleDuplicate}>
+            <Copy className="w-4 h-4" />
+          </Button>
 
-      {/* Undo/Redo */}
-      <Button
-        variant="toolbar"
-        size="icon"
-        className="w-9 h-9"
-        onClick={onUndo}
-        disabled={!canUndo}
-      >
-        <Undo2 className="w-4 h-4" />
-      </Button>
-      <Button
-        variant="toolbar"
-        size="icon"
-        className="w-9 h-9"
-        onClick={onRedo}
-        disabled={!canRedo}
-      >
-        <Redo2 className="w-4 h-4" />
-      </Button>
+          <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={onBringForward}>
+            <ArrowUp className="w-4 h-4" />
+          </Button>
+          <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={onSendBackward}>
+            <ArrowDown className="w-4 h-4" />
+          </Button>
 
-      <div className="w-px h-5 bg-panel-border" />
+          <div className="w-px h-5 bg-panel-border mx-1" />
 
-      {/* Delete */}
-      <Button
-        variant="toolbar"
-        size="icon"
-        className="w-9 h-9 hover:bg-destructive/20 hover:text-destructive"
-        onClick={onDelete}
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
+          <Button
+            variant="toolbar"
+            size="icon"
+            className="w-9 h-9 hover:bg-destructive/20 hover:text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -50,7 +50,7 @@ import {
   DEFAULT_IMAGE_FILTER,
 } from "@/lib/types";
 import { toast } from "sonner";
-import { X, Palette, Settings2 } from "lucide-react";
+import { X, Palette, Settings2, Pencil, Spline, Link, Undo2, Redo2 } from "lucide-react";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -690,6 +690,21 @@ const CanvasEditor = () => {
 
         {/* Canvas area - maximized space */}
         <main className="flex-1 flex flex-col min-h-0 relative">
+          {/* Top-Left Unified Toolbar (Undo/Redo + Selection Actions) */}
+          <div className="absolute top-4 left-4 z-20">
+            <SelectionToolbar
+              canvas={canvas}
+              onDelete={deleteSelected}
+              onBringForward={bringForward}
+              onSendBackward={sendBackward}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              hideToolbar={showLayersPanel}
+            />
+          </div>
+
           {/* Canvas container - takes all available space */}
           <div className="flex-1 canvas-container relative flex items-center justify-center overflow-hidden" style={{ touchAction: 'none' }}>
             <canvas ref={canvasRef} className="max-w-full max-h-full" style={{ touchAction: 'none' }} />
@@ -735,18 +750,7 @@ const CanvasEditor = () => {
               </div>
             )}
 
-            {/* Floating selection toolbar */}
-            <SelectionToolbar
-              canvas={canvas}
-              onDelete={deleteSelected}
-              onBringForward={bringForward}
-              onSendBackward={sendBackward}
-              onUndo={undo}
-              onRedo={redo}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              hideToolbar={showLayersPanel}
-            />
+
           </div>
 
           {/* Spacer for fixed bottom toolbar */}

@@ -90,7 +90,7 @@ interface DrawingToolbarProps {
   onTraceSettingsChange: (settings: TraceSettings) => void;
 }
 
-type DockCategory = 'select' | 'draw' | 'shapes' | 'sim' | '3d' | 'settings' | 'image' | 'layers' | 'export' | 'projects' | null;
+type DockCategory = 'select' | 'draw' | 'shapes' | 'sim' | '3d' | 'settings' | 'image' | 'layers' | 'export' | 'projects' | 'text' | null;
 
 export const DrawingToolbar = (props: DrawingToolbarProps) => {
   const [activeCategory, setActiveCategory] = useState<DockCategory>(null);
@@ -112,6 +112,9 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
       case 'ellipse':
       case 'polygon':
         setActiveCategory('shapes');
+        break;
+      case 'text':
+        setActiveCategory('text');
         break;
       default:
         break;
@@ -205,7 +208,7 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
           )}
 
           {/* Sub-toolbar container */}
-          {['select', 'draw', 'shapes', 'image'].includes(activeCategory || '') && (
+          {['select', 'draw', 'shapes', 'image', 'text'].includes(activeCategory || '') && (
             <div className="mb-2 bg-background/80 backdrop-blur-md border border-border/50 shadow-xl rounded-2xl p-2 flex gap-2 overflow-x-auto custom-horizontal-scrollbar mx-auto max-w-full justify-start md:justify-center">
 
               {/* Select Tools */}
@@ -309,6 +312,16 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
                   />
                 </>
               )}
+
+              {/* Text Tools */}
+              {activeCategory === 'text' && (
+                <SubToolButton
+                  icon={Type}
+                  label="Add Text"
+                  isActive={props.activeTool === 'text'}
+                  onClick={() => props.onToolChange('text')}
+                />
+              )}
             </div>
           )}
         </div>
@@ -328,47 +341,12 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
             onClick={() => handleCategoryClick('layers')}
           />
 
-          <div className="w-px h-8 bg-border/50 mx-1 shrink-0" />
-
           <ToolIcon
             icon={MousePointer2}
             label="Select"
             isActive={activeCategory === 'select'}
             onClick={() => handleCategoryClick('select')}
           />
-          <ToolIcon
-            icon={Pencil}
-            label="Draw"
-            isActive={activeCategory === 'draw'}
-            onClick={() => handleCategoryClick('draw')}
-          />
-          <ToolIcon
-            icon={Shapes}
-            label="Shapes"
-            isActive={activeCategory === 'shapes'}
-            onClick={() => handleCategoryClick('shapes')}
-          />
-
-          <div className="w-px h-8 bg-border/50 mx-1 shrink-0" />
-
-          <ToolIcon
-            icon={Play}
-            label="Sim"
-            onClick={() => handleCategoryClick('sim')}
-          />
-          <ToolIcon
-            icon={Box}
-            label="3D"
-            onClick={() => handleCategoryClick('3d')}
-          />
-          <ToolIcon
-            icon={Settings2}
-            label="Settings"
-            isActive={activeCategory === 'settings'}
-            onClick={() => handleCategoryClick('settings')}
-          />
-
-          <div className="w-px h-8 bg-border/50 mx-1 shrink-0" />
 
           <ToolIcon
             icon={ImageIcon}
@@ -377,6 +355,38 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
             onClick={() => handleCategoryClick('image')}
           />
 
+          <ToolIcon
+            icon={Type}
+            label="Text"
+            isActive={activeCategory === 'text'}
+            onClick={() => handleCategoryClick('text')}
+          />
+
+          <ToolIcon
+            icon={Shapes}
+            label="Shapes"
+            isActive={activeCategory === 'shapes'}
+            onClick={() => handleCategoryClick('shapes')}
+          />
+
+          <ToolIcon
+            icon={Pencil}
+            label="Draw"
+            isActive={activeCategory === 'draw'}
+            onClick={() => handleCategoryClick('draw')}
+          />
+
+          <ToolIcon
+            icon={Play}
+            label="Sim"
+            onClick={() => handleCategoryClick('sim')}
+          />
+
+          <ToolIcon
+            icon={Box}
+            label="3D"
+            onClick={() => handleCategoryClick('3d')}
+          />
 
           <ExportMenu
             canvas={props.canvas}
@@ -391,8 +401,6 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
               </button>
             }
           />
-
-          <div className="w-px h-8 bg-border/50 mx-1 shrink-0" />
 
           <button
             onClick={() => setShowHelp(true)}
