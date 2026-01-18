@@ -24,10 +24,10 @@ COPY --from=builder /app/dist ./dist
 
 # Set environment variables
 ENV NODE_ENV production
-ENV PORT 3011
+ENV PORT 4000
 
 # Expose port (Coolify expects this)
-EXPOSE 3011
+EXPOSE 4000
 
 # Start the static server (SPA mode with -s)
-CMD ["serve", "-s", "dist", "-l", "3011"]
+CMD ["serve", "-s", "dist", "-l", "4000"]

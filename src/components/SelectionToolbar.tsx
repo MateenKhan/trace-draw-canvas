@@ -15,6 +15,7 @@ import {
   Type,
   Bold,
   Italic,
+  Crop,
 } from "lucide-react";
 import {
   Popover,
@@ -41,6 +42,7 @@ interface SelectionToolbarProps {
   onRedo?: () => void;
   onGroup?: () => void;
   onUngroup?: () => void;
+  onCrop?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   hideToolbar?: boolean;
@@ -72,12 +74,13 @@ export const SelectionToolbar = ({
   onRedo,
   onGroup,
   onUngroup,
+  onCrop,
   canUndo = false,
   canRedo = false,
   hideToolbar = false,
 }: SelectionToolbarProps) => {
   const [hasSelection, setHasSelection] = useState(false);
-  const [selectionType, setSelectionType] = useState<'single' | 'multiple' | 'group' | 'text'>('single');
+  const [selectionType, setSelectionType] = useState<'single' | 'multiple' | 'group' | 'text' | 'image'>('single');
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   // Text State
@@ -104,6 +107,8 @@ export const SelectionToolbar = ({
         setSelectionType('multiple');
       } else if (activeObj.type === 'group') {
         setSelectionType('group');
+      } else if (activeObj.type === 'image') {
+        setSelectionType('image');
       } else if (activeObj.type === 'i-text' || activeObj.type === 'text') {
         setSelectionType('text');
         if (!isUpdatingRef.current) {
@@ -273,6 +278,16 @@ export const SelectionToolbar = ({
                   ))}
                 </SelectContent>
               </Select>
+              <div className="w-px h-5 bg-panel-border mx-1" />
+            </>
+          )}
+
+          {/* Image Tools */}
+          {selectionType === 'image' && (
+            <>
+              <Button variant="toolbar" size="icon" className="w-9 h-9" onClick={onCrop} title="Crop Image">
+                <Crop className="w-4 h-4" />
+              </Button>
               <div className="w-px h-5 bg-panel-border mx-1" />
             </>
           )}
