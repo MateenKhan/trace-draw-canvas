@@ -807,7 +807,7 @@ const CanvasEditor = () => {
         {showMobileSettings && (
           <div className="absolute inset-0 z-50 lg:hidden">
             <div className="absolute inset-0 bg-background/50 backdrop-blur-sm" onClick={() => setShowMobileSettings(false)} />
-            <div className="absolute inset-y-0 left-0 w-[85%] max-w-sm overflow-hidden bg-background/10 backdrop-blur-sm shadow-2xl animate-slide-up">
+            <div className="absolute inset-y-0 left-0 w-[85%] max-w-sm overflow-hidden bg-background/10 backdrop-blur-xl shadow-2xl animate-slide-up">
               <div className="flex items-center justify-between p-4 border-b border-white/10">
                 <h2 className="text-lg font-semibold">Settings</h2>
                 <Button variant="toolbar" size="icon" onClick={() => setShowMobileSettings(false)}><X className="w-4 h-4" /></Button>
@@ -948,7 +948,7 @@ const CanvasEditor = () => {
         {showLayersPanel && isMobile && (
           <div className="absolute inset-0 z-50 lg:hidden flex justify-end">
             <div className="absolute inset-0 bg-background/30 backdrop-blur-sm" onClick={() => setShowLayersPanel(false)} />
-            <div className="relative w-72 h-full bg-background/10 backdrop-blur-sm border-l border-white/10 animate-slide-left flex flex-col pt-0 pb-20 shadow-2xl">
+            <div className="relative w-72 h-full bg-background/10 backdrop-blur-xl border-l border-white/10 animate-slide-left flex flex-col pt-0 pb-20 shadow-2xl">
               <div className="flex-1 overflow-hidden">
                 <LayersPanel
                   canvas={canvas}

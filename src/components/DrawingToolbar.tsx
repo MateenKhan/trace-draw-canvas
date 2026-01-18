@@ -225,7 +225,7 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
 
           {/* Sub-toolbar container */}
           {['select', 'draw', 'shapes', 'image', 'text'].includes(activeCategory || '') && (
-            <div className="mb-2 bg-background/10 backdrop-blur-sm border border-white/10 shadow-xl rounded-2xl p-2 flex gap-2 overflow-x-auto custom-horizontal-scrollbar mx-auto max-w-full justify-start md:justify-center">
+            <div className="mb-2 bg-background/80 backdrop-blur-md border border-border/50 shadow-xl rounded-2xl p-2 flex gap-2 overflow-x-auto custom-horizontal-scrollbar mx-auto max-w-full justify-start md:justify-center">
 
               {/* Select Tools */}
               {activeCategory === 'select' && (
@@ -351,7 +351,7 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
 
 
       {/* Row 1: Bottom Dock (Scrollable) */}
-      <div className="w-full bg-background/10 backdrop-blur-sm border-t border-white/10 pb-safe pointer-events-auto shadow-2xl">
+      <div className="w-full bg-background/95 backdrop-blur-md border-t border-panel-border pb-safe pointer-events-auto">
         <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto custom-horizontal-scrollbar justify-start md:justify-center min-w-full">
 
 
