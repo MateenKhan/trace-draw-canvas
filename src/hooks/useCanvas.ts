@@ -180,8 +180,6 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
             }
 
             try {
-              canvas.clear();
-
               const fabricImage = await FabricImage.fromURL(
                 e.target?.result as string
               );
@@ -206,6 +204,7 @@ export const useCanvas = (options: UseCanvasOptions = {}) => {
               });
 
               canvas.add(fabricImage);
+              canvas.sendObjectToBack(fabricImage);
               canvas.setActiveObject(fabricImage);
               canvas.renderAll();
 
