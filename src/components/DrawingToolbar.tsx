@@ -177,20 +177,23 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
     </button>
   );
 
-  const SubToolButton = ({ icon: Icon, label, isActive, onClick, disabled }: any) => (
+  const SubToolButton = ({ icon: Icon, label, isActive, onClick, disabled, className, iconClassName }: any) => (
     <button
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap",
+        "flex items-center justify-center gap-2 px-3 py-2 rounded-full border transition-all whitespace-nowrap",
         isActive
           ? "bg-primary border-primary text-primary-foreground shadow-md"
-          : "bg-background border-border text-foreground hover:bg-secondary",
-        disabled && "opacity-50 cursor-not-allowed"
+          : "bg-transparent border-transparent text-foreground hover:bg-secondary/50",
+        disabled && "opacity-50 cursor-not-allowed",
+        !label && "px-3", // Reduce padding if icon only
+        className
       )}
+      title={label}
     >
-      <Icon className="w-4 h-4" />
-      <span className="text-xs font-medium">{label}</span>
+      <Icon className={cn("w-5 h-5", iconClassName)} />
+      {label && <span className="text-xs font-medium">{label}</span>}
     </button>
   );
 
@@ -222,36 +225,42 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
 
           {/* Sub-toolbar container */}
           {['select', 'draw', 'shapes', 'image', 'text'].includes(activeCategory || '') && (
-            <div className="mb-2 bg-background/80 backdrop-blur-md border border-border/50 shadow-xl rounded-2xl p-2 flex gap-2 overflow-x-auto custom-horizontal-scrollbar mx-auto max-w-full justify-start md:justify-center">
+            <div className="mb-2 bg-background/10 backdrop-blur-xl border border-white/10 shadow-xl rounded-2xl p-2 flex gap-2 overflow-x-auto custom-horizontal-scrollbar mx-auto max-w-full justify-start md:justify-center">
 
               {/* Select Tools */}
               {activeCategory === 'select' && (
-                <>
-                  <SubToolButton
-                    icon={MousePointer2}
-                    label="Select"
-                    isActive={props.activeTool === 'select'}
-                    onClick={() => props.onToolChange('select')}
-                  />
-                  <SubToolButton
-                    icon={Hand}
-                    label="Pan"
-                    isActive={props.activeTool === 'pan'}
-                    onClick={() => props.onToolChange('pan')}
-                  />
-                  <div className="w-px bg-border/50 mx-1" />
-                  <SubToolButton
-                    icon={Trash2}
-                    label="Delete"
-                    disabled={!props.canDeleteSelected}
-                    onClick={props.onDeleteSelected}
-                  />
-                  <SubToolButton
-                    icon={History}
-                    label="History"
-                    onClick={props.onToggleHistory}
-                  />
-                </>
+                <div className="flex w-full items-center justify-between gap-2">
+                  <div className="flex gap-2">
+                    <SubToolButton
+                      icon={MousePointer2}
+                      label="Select"
+                      isActive={props.activeTool === 'select'}
+                      onClick={() => props.onToolChange('select')}
+                    />
+                    <SubToolButton
+                      icon={Hand}
+                      label="Pan"
+                      isActive={props.activeTool === 'pan'}
+                      onClick={() => props.onToolChange('pan')}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <SubToolButton
+                      icon={Trash2}
+                      disabled={!props.canDeleteSelected}
+                      onClick={props.onDeleteSelected}
+                      className="text-destructive hover:bg-destructive/20 border-destructive/20"
+                      iconClassName="w-5 h-5"
+                    />
+                    <SubToolButton
+                      icon={History}
+                      onClick={props.onToggleHistory}
+                      className="text-orange-500 hover:bg-orange-500/20 border-orange-500/20"
+                      iconClassName="w-5 h-5"
+                    />
+                  </div>
+                </div>
               )}
 
               {/* Draw Tools */}
@@ -342,7 +351,7 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
 
 
       {/* Row 1: Bottom Dock (Scrollable) */}
-      <div className="w-full bg-background/95 backdrop-blur-md border-t border-panel-border pb-safe pointer-events-auto">
+      <div className="w-full bg-background/10 backdrop-blur-xl border-t border-white/10 pb-safe pointer-events-auto shadow-2xl">
         <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto custom-horizontal-scrollbar justify-start md:justify-center min-w-full">
 
 
