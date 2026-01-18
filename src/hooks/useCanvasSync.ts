@@ -16,6 +16,8 @@ interface UseCanvasSyncOptions {
     setTextStyle: (style: TextStyle | ((prev: TextStyle) => TextStyle)) => void;
     setCanDeleteSelected: (can: boolean) => void;
     onTextSelect?: () => void;
+    onTransformStart?: () => void;
+    onTransformEnd?: () => void;
 }
 
 export const useCanvasSync = ({
@@ -25,8 +27,10 @@ export const useCanvasSync = ({
     setTextStyle,
     setCanDeleteSelected,
     onTextSelect,
+    onTransformStart,
+    onTransformEnd,
 }: UseCanvasSyncOptions) => {
-    const sync = useCallback(() => {
+    const sync = useCallback((isSelectionEvent = false) => {
         if (!canvas) return;
 
         const activeObjects = canvas.getActiveObjects();
@@ -57,7 +61,7 @@ export const useCanvasSync = ({
 
             // Sync Text Style
             if (obj.type === 'i-text' || obj.type === 'text') {
-                onTextSelect?.();
+                if (isSelectionEvent) onTextSelect?.();
                 const textObj = obj as any;
                 setTextStyle(prev => {
                     if (
@@ -89,28 +93,45 @@ export const useCanvasSync = ({
     useEffect(() => {
         if (!canvas) return;
 
-        sync();
+        sync(false);
 
-        canvas.on('selection:created', sync);
-        canvas.on('selection:updated', sync);
-        canvas.on('selection:cleared', sync);
-        canvas.on('object:added', sync);
-        canvas.on('object:removed', sync);
-        canvas.on('object:modified', sync);
-        canvas.on('object:moving', sync);
-        canvas.on('object:scaling', sync);
-        canvas.on('object:rotating', sync);
+        const handleSelection = () => sync(true);
+        const handleSync = () => sync(false);
+        const handleTransformStart = () => onTransformStart?.();
+        const handleTransformEnd = () => {
+            onTransformEnd?.();
+            sync(false);
+        };
+
+        canvas.on('selection:created', handleSelection);
+        canvas.on('selection:updated', handleSelection);
+        canvas.on('selection:cleared', handleSync);
+        canvas.on('object:added', handleSync);
+        canvas.on('object:removed', handleSync);
+        canvas.on('object:modified', handleTransformEnd);
+        canvas.on('object:moving', () => {
+            handleTransformStart();
+            handleSync();
+        });
+        canvas.on('object:scaling', () => {
+            handleTransformStart();
+            handleSync();
+        });
+        canvas.on('object:rotating', () => {
+            handleTransformStart();
+            handleSync();
+        });
 
         return () => {
-            canvas.off('selection:created', sync);
-            canvas.off('selection:updated', sync);
-            canvas.off('selection:cleared', sync);
-            canvas.off('object:added', sync);
-            canvas.off('object:removed', sync);
-            canvas.off('object:modified', sync);
-            canvas.off('object:moving', sync);
-            canvas.off('object:scaling', sync);
-            canvas.off('object:rotating', sync);
+            canvas.off('selection:created', handleSelection);
+            canvas.off('selection:updated', handleSelection);
+            canvas.off('selection:cleared', handleSync);
+            canvas.off('object:added', handleSync);
+            canvas.off('object:removed', handleSync);
+            canvas.off('object:modified', handleTransformEnd);
+            canvas.off('object:moving', handleSync);
+            canvas.off('object:scaling', handleSync);
+            canvas.off('object:rotating', handleSync);
         };
     }, [canvas, sync]);
 };

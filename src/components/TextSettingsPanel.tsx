@@ -30,6 +30,7 @@ interface TextSettingsPanelProps {
     onClose: () => void;
     textStyle: TextStyle;
     onTextStyleChange: (style: TextStyle) => void;
+    onApply?: () => void;
 }
 
 export const TextSettingsPanel = ({
@@ -37,6 +38,7 @@ export const TextSettingsPanel = ({
     onClose,
     textStyle,
     onTextStyleChange,
+    onApply,
 }: TextSettingsPanelProps) => {
     if (!isVisible) return null;
 
@@ -192,13 +194,27 @@ export const TextSettingsPanel = ({
                                 <input
                                     type="color"
                                     value={textStyle.fill}
-                                    onChange={(e) => onTextStyleChange({ ...textStyle, fill: e.target.value })}
+                                    onChange={(e) => {
+                                        const newColor = e.target.value;
+                                        onTextStyleChange({
+                                            ...textStyle,
+                                            fill: newColor,
+                                            glowColor: textStyle.glowColor === textStyle.fill ? newColor : textStyle.glowColor
+                                        });
+                                    }}
                                     className="w-full h-full opacity-0 cursor-pointer"
                                 />
                             </div>
                             <Input
                                 value={textStyle.fill}
-                                onChange={(e) => onTextStyleChange({ ...textStyle, fill: e.target.value })}
+                                onChange={(e) => {
+                                    const newColor = e.target.value;
+                                    onTextStyleChange({
+                                        ...textStyle,
+                                        fill: newColor,
+                                        glowColor: textStyle.glowColor === textStyle.fill ? newColor : textStyle.glowColor
+                                    });
+                                }}
                                 className="flex-1 font-mono text-xs h-10 bg-secondary/20"
                             />
                         </div>
@@ -307,10 +323,10 @@ export const TextSettingsPanel = ({
                 {/* Apply Button */}
                 <div className="p-4 border-t border-white/5 bg-background/20">
                     <Button
-                        onClick={onClose}
+                        onClick={onApply}
                         className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 h-10 rounded-xl font-bold uppercase tracking-wider text-xs"
                     >
-                        Apply Changes
+                        Apply
                     </Button>
                 </div>
             </div>

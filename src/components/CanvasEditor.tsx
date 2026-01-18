@@ -401,6 +401,19 @@ const CanvasEditor = () => {
     updateSelectedTextStyle(newStyle);
   }, [updateSelectedTextStyle]);
 
+  const handleApplyText = useCallback(() => {
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    const hasTextSelected = activeObjects.some(obj => obj.type === 'i-text' || obj.type === 'text');
+
+    if (!hasTextSelected) {
+      addText(textStyle.content || "");
+    } else {
+      updateSelectedTextStyle(textStyle);
+    }
+    toast.success("Text applied");
+  }, [canvas, addText, textStyle, updateSelectedTextStyle]);
+
   const handleImageFilterChange = useCallback((newFilter: ImageFilter) => {
     setImageFilter(newFilter);
     applyFilters(newFilter);
@@ -709,6 +722,10 @@ const CanvasEditor = () => {
     setTextStyle,
     setCanDeleteSelected,
     onTextSelect: () => setShowTextPanel(true),
+    onTransformStart: () => setShowTextPanel(false),
+    onTransformEnd: () => {
+      // Don't auto-reopen after dragging/resizing/rotating
+    },
   });
 
   // Handle Full History Clear (Memory + Storage)
@@ -1210,6 +1227,7 @@ const CanvasEditor = () => {
         onClose={() => setShowTextPanel(false)}
         textStyle={textStyle}
         onTextStyleChange={handleTextStyleChange}
+        onApply={handleApplyText}
       />
     </div>
   );

@@ -92,9 +92,10 @@ export const DEFAULT_TEXT_STYLE: TextStyle = {
   textAlign: 'left',
   letterSpacing: 0,
   lineHeight: 1.2,
-  fill: '#ffffff',
-  glowColor: 'transparent',
+  fill: '#00d4ff',
+  glowColor: '#00d4ff',
   glowBlur: 0,
+  content: 'New Text',
 };
 
 export const DEFAULT_IMAGE_FILTER: ImageFilter = {
