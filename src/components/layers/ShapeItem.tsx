@@ -87,7 +87,11 @@ export const ShapeItem = memo(({
         transform,
         transition,
         isDragging: isSorting
-    } = useSortable({ id: sortableId, data: { type: 'shape', object, parentId: (object as any).layerId } });
+    } = useSortable({
+        id: sortableId,
+        data: { type: 'shape', object, parentId: (object as any).layerId },
+        disabled: !!object.lockMovementX
+    });
 
     // Swipe State
     const [swipeX, setSwipeX] = useState(0);
@@ -287,7 +291,24 @@ export const ShapeItem = memo(({
                     )}
                 </div>
 
-                {/* Always Visible Actions (User asked for View/Hide) */}
+                {/* Always Visible Actions */}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-6 h-6 hover:bg-background/80 flex-shrink-0"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleLock();
+                    }}
+                    title={object.lockMovementX ? "Unlock" : "Lock"}
+                >
+                    {object.lockMovementX ? (
+                        <Lock className="w-3.5 h-3.5 text-warning" />
+                    ) : (
+                        <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
+                    )}
+                </Button>
+                {/* User asked for View/Hide */}
                 <Button
                     variant="ghost"
                     size="icon"

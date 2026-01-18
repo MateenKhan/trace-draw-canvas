@@ -9,6 +9,7 @@ export interface LayerNodeData {
     expanded: boolean;
     children: string[]; // IDs of children
     parentId: string | null;
+    locked?: boolean;
 }
 
 export interface LayerTreeState {

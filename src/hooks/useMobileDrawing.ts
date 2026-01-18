@@ -283,13 +283,15 @@ export const useMobileDrawing = ({
 
     // Mouse events
     const handleMouseDown = (e: any) => {
-      if (!e.pointer) return;
-      startDrawing(e.pointer.x, e.pointer.y);
+      const pointer = e.scenePoint || e.pointer || (e.e && canvas.getScenePoint(e.e));
+      if (!pointer) return;
+      startDrawing(pointer.x, pointer.y);
     };
 
     const handleMouseMove = (e: any) => {
-      if (!e.pointer) return;
-      updateDrawing(e.pointer.x, e.pointer.y);
+      const pointer = e.scenePoint || e.pointer || (e.e && canvas.getScenePoint(e.e));
+      if (!pointer) return;
+      updateDrawing(pointer.x, pointer.y);
     };
 
     const handleMouseUp = () => {

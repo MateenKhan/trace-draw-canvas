@@ -196,8 +196,37 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     const syncLayers = () => {
       const allObjects = [...canvas.getObjects()].filter(obj => !(obj as any).isHelper);
       allObjects.forEach(obj => {
-        if (!(obj as any).layerId) {
-          (obj as any).layerId = activeNodeId && tree.nodes[activeNodeId] ? activeNodeId : 'layer_base';
+        let lid = (obj as any).layerId;
+        if (!lid) {
+          lid = activeNodeId && tree.nodes[activeNodeId] ? activeNodeId : 'layer_base';
+          (obj as any).layerId = lid;
+        }
+
+        // Enforce layer lock state
+        // If the parent layer (node) is locked, the object must be locked.
+        // We traverse up to check if any parent is locked.
+        let isLocked = false;
+        let currId = lid;
+        while (currId && tree.nodes[currId]) {
+          if (tree.nodes[currId].locked) {
+            isLocked = true;
+            break;
+          }
+          currId = tree.nodes[currId].parentId || '';
+        }
+
+        if (isLocked) {
+          obj.lockMovementX = true;
+          obj.lockMovementY = true;
+          obj.lockRotation = true;
+          obj.lockScalingX = true;
+          obj.lockScalingY = true;
+          obj.hasControls = false;
+          obj.selectable = false;
+          obj.evented = false;
+          if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
+            (obj as any).editable = false;
+          }
         }
       });
       setObjects(allObjects.reverse());
@@ -207,9 +236,30 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     };
 
     const handleObjectAdded = (e: any) => {
-      if (e.target && !(e.target as any).layerId) {
-        const targetId = activeNodeId && tree.nodes[activeNodeId] ? activeNodeId : 'layer_base';
-        (e.target as any).layerId = targetId;
+      const targetId = activeNodeId && tree.nodes[activeNodeId] ? activeNodeId : 'layer_base';
+      if (e.target) {
+        if (!(e.target as any).layerId) {
+          (e.target as any).layerId = targetId;
+        }
+
+        // Apply lock state if the target layer is locked
+        const targetNode = tree.nodes[(e.target as any).layerId];
+        if (targetNode?.locked) {
+          const obj = e.target;
+          obj.lockMovementX = true;
+          obj.lockMovementY = true;
+          obj.lockRotation = true;
+          obj.lockScalingX = true;
+          obj.lockScalingY = true;
+          obj.hasControls = false;
+          obj.selectable = false;
+          obj.evented = false;
+          if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
+            (obj as any).editable = false;
+          }
+          canvas.discardActiveObject();
+          canvas.requestRenderAll();
+        }
       }
       syncLayers();
     };
@@ -515,15 +565,26 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
             const nodeShapes = objects.filter(obj => (obj as any).layerId === targetId);
             nodeShapes.forEach((shape, idx) => {
               const shapeId = (shape as any).id || `shape_${targetId}_${idx}`;
-              ids.push(shapeId);
+              // Only add if not locked
+              if (!shape.lockMovementX) {
+                ids.push(shapeId);
+              }
             });
           }
         }
         return ids;
       };
 
+      // Initial check for the target itself
+      if (tree.nodes[id]?.locked) return prev; // Cannot select locked layer
+
       const idsToToggle = getRecursiveIds(id);
       idsToToggle.forEach(tid => {
+        // Double check individual node locks during recursion if needed, 
+        // but generally getRecursiveIds handles children.
+        // We fundamentally won't select locked items.
+        if (tree.nodes[tid]?.locked) return;
+
         if (shouldSelect) next.add(tid);
         else next.delete(tid);
       });
@@ -534,7 +595,14 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
 
   const handleSelectAll = useCallback((checked: boolean | string) => {
     if (checked === true) {
-      setSelectedIds(new Set(flattenedItems.map(i => i.id)));
+      // Only select items that are inherently selectable (not locked)
+      const selectableIds = flattenedItems
+        .filter(item => {
+          if (item.type === 'node') return !item.node.locked;
+          return !item.object.lockMovementX; // Check if shape is locked
+        })
+        .map(i => i.id);
+      setSelectedIds(new Set(selectableIds));
     } else {
       setSelectedIds(new Set());
     }
@@ -879,6 +947,49 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     return node.children.some(id => shouldShowNode(id));
   }, [searchQuery, tree.nodes, objectsMap]);
 
+  const handleToggleNodeLock = useCallback((nodeId: string) => {
+    const targetNode = tree.nodes[nodeId];
+    if (!targetNode) return;
+    const isLocked = !targetNode.locked;
+
+    setTree(prev => {
+      const nextNodes = { ...prev.nodes };
+
+      const setLockRecursive = (currId: string) => {
+        const curr = nextNodes[currId];
+        if (!curr) return;
+
+        nextNodes[currId] = { ...curr, locked: isLocked };
+
+        const nodeShapes = objects.filter(obj => (obj as any).layerId === currId);
+        nodeShapes.forEach(obj => {
+          obj.lockMovementX = isLocked;
+          obj.lockMovementY = isLocked;
+          obj.lockRotation = isLocked;
+          obj.lockScalingX = isLocked;
+          obj.lockScalingY = isLocked;
+          obj.hasControls = !isLocked;
+          obj.selectable = !isLocked;
+          obj.evented = !isLocked; // Disables events completely (hover etc)
+          if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
+            (obj as any).editable = !isLocked;
+          }
+        });
+
+        curr.children.forEach(childId => setLockRecursive(childId));
+      };
+
+      setLockRecursive(nodeId);
+      return { ...prev, nodes: nextNodes };
+    });
+
+    if (isLocked) {
+      canvas?.discardActiveObject();
+    }
+    canvas?.requestRenderAll();
+    setVersion(v => v + 1);
+  }, [tree.nodes, objects, canvas]);
+
   const renderFlatTree = () => {
     let filteredItems = flattenedItems;
 
@@ -927,7 +1038,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
                   canvas?.requestRenderAll();
                   setVersion(v => v + 1);
                 }}
-                onToggleLock={() => { }} onDeleteObject={() => { }}
+                onToggleLock={() => handleToggleNodeLock(id)} onDeleteObject={() => { }}
                 onDuplicateObject={() => { }} onRenameObject={() => { }}
                 isSelected={selectedIds.has(id)}
                 onToggleSelect={() => handleToggleSelect(id)}
@@ -944,7 +1055,23 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
                 key={id} id={id} object={object} depth={depth} isActive={activeObject === object}
                 onSelect={() => { if (canvas) { canvas.setActiveObject(object); canvas.requestRenderAll(); setActiveNodeId(parentId); } }}
                 onToggleVisibility={() => { object.visible = !object.visible; if (!object.visible) canvas?.discardActiveObject(); canvas?.requestRenderAll(); setVersion(v => v + 1); }}
-                onToggleLock={() => { const v = !object.lockMovementX; object.lockMovementX = v; object.lockMovementY = v; object.lockRotation = v; object.lockScalingX = v; object.lockScalingY = v; canvas?.requestRenderAll(); setVersion(v => v + 1); }}
+                onToggleLock={() => {
+                  const v = !object.lockMovementX;
+                  object.lockMovementX = v;
+                  object.lockMovementY = v;
+                  object.lockRotation = v;
+                  object.lockScalingX = v;
+                  object.lockScalingY = v;
+                  object.hasControls = !v;
+                  object.selectable = !v;
+                  object.evented = !v;
+                  if (object.type === 'i-text' || object.type === 'text' || object.type === 'textbox') {
+                    (object as any).editable = !v;
+                  }
+                  if (v) canvas?.discardActiveObject();
+                  canvas?.requestRenderAll();
+                  setVersion(v => v + 1);
+                }}
                 onDelete={() => { canvas?.remove(object); canvas?.requestRenderAll(); }}
                 onDuplicate={async () => { const cloned = await object.clone(); cloned.set({ left: (object.left || 0) + 20, top: (object.top || 0) + 20 }); (cloned as any).layerId = parentId; canvas?.add(cloned); canvas?.setActiveObject(cloned); canvas?.requestRenderAll(); }}
                 onRename={(name) => { object.set('name', name); setVersion(v => v + 1); }}

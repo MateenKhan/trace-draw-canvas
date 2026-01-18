@@ -155,15 +155,35 @@ export const useDrawingTools = ({
       fill: textStyle.fill,
       charSpacing: textStyle.letterSpacing * 10,
       lineHeight: textStyle.lineHeight,
-      shadow: textStyle.glowColor !== 'transparent' && textStyle.glowBlur > 0 ? new Shadow({
-        color: textStyle.glowColor,
-        blur: textStyle.glowBlur,
-        offsetX: 0,
-        offsetY: 0,
-      }) : null,
+      stroke: textStyle.outlineWidth! > 0 ? textStyle.outlineColor : undefined,
+      strokeWidth: textStyle.outlineWidth || 0,
+      strokeLineJoin: 'round',
+      strokeLineCap: 'round',
+      paintFirst: textStyle.paintFirst || 'stroke',
+      // @ts-ignore
+      outlineOffsetX: textStyle.outlineOffsetX || 0,
+      // @ts-ignore
+      outlineOffsetY: textStyle.outlineOffsetY || 0,
+      // @ts-ignore
+      outlineGap: textStyle.outlineGap || 0,
+      // @ts-ignore
+      outlineGapColor: textStyle.outlineGapColor || 'transparent',
+      shadow: (textStyle.glowColor !== 'transparent' && (textStyle.glowBlur || 0) > 0) ||
+        ((textStyle.offsetBlur || 0) > 0 || Math.abs(textStyle.offsetX || 0) > 0 || Math.abs(textStyle.offsetY || 0) > 0) ||
+        ((textStyle.outlineBlur || 0) > 0) ? new Shadow({
+          color: ((textStyle.offsetBlur || 0) > 0 || Math.abs(textStyle.offsetX || 0) > 0 || Math.abs(textStyle.offsetY || 0) > 0)
+            ? (textStyle.offsetColor || '#000000')
+            : ((textStyle.outlineBlur || 0) > 0 ? (textStyle.outlineColor || '#000000') : (textStyle.glowColor || 'transparent')),
+          blur: ((textStyle.offsetBlur || 0) > 0 || Math.abs(textStyle.offsetX || 0) > 0 || Math.abs(textStyle.offsetY || 0) > 0)
+            ? (textStyle.offsetBlur || 0)
+            : ((textStyle.outlineBlur || 0) > 0 ? (textStyle.outlineBlur || 0) : (textStyle.glowBlur || 0)),
+          offsetX: textStyle.offsetX || 0,
+          offsetY: textStyle.offsetY || 0,
+        }) : null,
       selectable: true,
       hasControls: true,
       hasBorders: true,
+      objectCaching: false,
       // @ts-ignore
       id: `shape_${Math.random().toString(36).substr(2, 9)}`,
     });
@@ -258,12 +278,32 @@ export const useDrawingTools = ({
           fill: newStyle.fill,
           charSpacing: newStyle.letterSpacing * 10,
           lineHeight: newStyle.lineHeight,
-          shadow: newStyle.glowColor !== 'transparent' && newStyle.glowBlur > 0 ? new Shadow({
-            color: newStyle.glowColor,
-            blur: newStyle.glowBlur,
-            offsetX: 0,
-            offsetY: 0,
-          }) : null,
+          stroke: newStyle.outlineWidth! > 0 ? newStyle.outlineColor : undefined,
+          strokeWidth: newStyle.outlineWidth || 0,
+          strokeLineJoin: 'round',
+          strokeLineCap: 'round',
+          paintFirst: newStyle.paintFirst || 'stroke',
+          // @ts-ignore
+          outlineOffsetX: newStyle.outlineOffsetX || 0,
+          // @ts-ignore
+          outlineOffsetY: newStyle.outlineOffsetY || 0,
+          // @ts-ignore
+          outlineGap: newStyle.outlineGap || 0,
+          // @ts-ignore
+          outlineGapColor: newStyle.outlineGapColor || 'transparent',
+          shadow: (newStyle.glowColor !== 'transparent' && (newStyle.glowBlur || 0) > 0) ||
+            ((newStyle.offsetBlur || 0) > 0 || Math.abs(newStyle.offsetX || 0) > 0 || Math.abs(newStyle.offsetY || 0) > 0) ||
+            ((newStyle.outlineBlur || 0) > 0) ? new Shadow({
+              color: ((newStyle.offsetBlur || 0) > 0 || Math.abs(newStyle.offsetX || 0) > 0 || Math.abs(newStyle.offsetY || 0) > 0)
+                ? (newStyle.offsetColor || '#000000')
+                : ((newStyle.outlineBlur || 0) > 0 ? (newStyle.outlineColor || '#000000') : (newStyle.glowColor || 'transparent')),
+              blur: ((newStyle.offsetBlur || 0) > 0 || Math.abs(newStyle.offsetX || 0) > 0 || Math.abs(newStyle.offsetY || 0) > 0)
+                ? (newStyle.offsetBlur || 0)
+                : ((newStyle.outlineBlur || 0) > 0 ? (newStyle.outlineBlur || 0) : (newStyle.glowBlur || 0)),
+              offsetX: newStyle.offsetX || 0,
+              offsetY: newStyle.offsetY || 0,
+            }) : null,
+          objectCaching: false, // Performance trade-off for correct shadow rendering
           ...(newStyle.content !== undefined ? { text: newStyle.content } : {}),
         });
       }

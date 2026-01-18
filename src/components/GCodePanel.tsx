@@ -63,8 +63,8 @@ export const GCodePanel = forwardRef<HTMLDivElement, GCodePanelProps>(({ toolPat
   // Calculate current point
   const allPoints = toolPaths.flatMap(tp => tp.points);
   const totalPoints = allPoints.length;
-  const currentPoint: PathPoint | null = totalPoints > 0 
-    ? allPoints[Math.min(Math.floor((progress / 100) * totalPoints), totalPoints - 1)] 
+  const currentPoint: PathPoint | null = totalPoints > 0
+    ? allPoints[Math.min(Math.floor((progress / 100) * totalPoints), totalPoints - 1)]
     : null;
 
   // Notify parent of simulation state changes
@@ -206,6 +206,19 @@ export const GCodePanel = forwardRef<HTMLDivElement, GCodePanelProps>(({ toolPat
               step={0.1}
               className="w-full"
             />
+            <div className="flex gap-1 pt-1 flex-wrap">
+              {[1, 2, 3, 3.175, 6, 6.35].map((v) => (
+                <Button
+                  key={v}
+                  variant="secondary"
+                  size="sm"
+                  className="h-5 text-[9px] px-1.5 min-w-[32px]"
+                  onClick={() => updateTool('diameter', v)}
+                >
+                  {v === 3.175 ? '1/8"' : v === 6.35 ? '1/4"' : `${v}mm`}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {settings.tool.type === 'vbit' && (

@@ -53,6 +53,7 @@ import {
   DEFAULT_FILL,
   DEFAULT_TEXT_STYLE,
   DEFAULT_IMAGE_FILTER,
+  CanvasUnit,
 } from "@/lib/types";
 import { toast } from "sonner";
 import { X, Palette, Settings2, Pencil, Spline, Link, Undo2, Redo2 } from "lucide-react";
@@ -90,12 +91,7 @@ const CanvasEditor = () => {
   const [layers, setLayers] = useState<Layer[]>(createDefaultLayers());
   const [groups, setGroups] = useState<LayerGroup[]>([]);
   const [activeLayerId, setActiveLayerId] = useState<string | null>(layers[0]?.id || null);
-  const [showLayersPanel, setShowLayersPanel] = useState(() => {
-    if (typeof window !== "undefined") {
-      return window.innerWidth >= 768;
-    }
-    return true;
-  });
+  const [showLayersPanel, setShowLayersPanel] = useState(false);
 
   // UI state
   const [showMobileSettings, setShowMobileSettings] = useState(false);
@@ -129,6 +125,8 @@ const CanvasEditor = () => {
   const [toolPaths, setToolPaths] = useState<ToolPath[]>([]);
   // Workspace state
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [canvasUnit, setCanvasUnit] = useState<CanvasUnit>('in');
+  const [autoResize, setAutoResize] = useState(true);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -145,7 +143,7 @@ const CanvasEditor = () => {
 
   // Auto-resize canvas to fill container
   useEffect(() => {
-    if (!canvasContainerRef.current) return;
+    if (!canvasContainerRef.current || !autoResize) return;
 
     const updateSize = () => {
       const container = canvasContainerRef.current;
@@ -162,6 +160,11 @@ const CanvasEditor = () => {
     updateSize(); // Initial call
 
     return () => observer.disconnect();
+  }, [autoResize]);
+
+  const handleManualSizeChange = useCallback((newSize: { width: number; height: number }) => {
+    setCanvasSize(newSize);
+    setAutoResize(false);
   }, []);
 
   const isReset = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('reset');
@@ -784,6 +787,37 @@ const CanvasEditor = () => {
     }, 100);
   }, [activeProjectId, clearCanvas, clearHistory, resetView]);
 
+  // Handle Escape key to close panels and overlays
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Close all panels/overlays
+        setShowLayersPanel(false);
+        setShowMobileSettings(false);
+        setShowTextPanel(false);
+        setShowImageUpload(false);
+        setShowGCodePanel(false);
+        setShow3DPanel(false);
+        setShowMobileSimulation(false);
+        setShowHistoryPanel(false);
+        setShowProjectsPanel(false);
+        setShowProjectHistoryPanel(false);
+        setIsCropperOpen(false);
+        setShowSvgOverlay(false);
+        setActiveDockCategory(null);
+
+        // Also deselect active object if any, to match standard "Exit" behavior
+        if (canvas) {
+          canvas.discardActiveObject();
+          canvas.requestRenderAll();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canvas]);
+
   // Click empty space to close panels
   useEffect(() => {
     if (!canvas) return;
@@ -791,6 +825,9 @@ const CanvasEditor = () => {
     const handleMouseDown = (e: any) => {
       // If clicked on empty space (no target)
       if (!e.target) {
+        // User request: only in desktop when clicked on empty areas the popup/overlays should not hide.
+        if (!isMobile) return;
+
         // Close floating panels
         if (window.innerWidth < 768) {
           setShowLayersPanel(false);
@@ -801,24 +838,11 @@ const CanvasEditor = () => {
 
         // Close dock menus (settings, etc) - keeping tools active though
         setActiveDockCategory((prev) => {
-          // Don't close if it's a tool category like 'draw' or 'shapes' or 'select'??
-          // User request: "active popups should close including layers/hisotry"
-          // If I have 'draw' category open (showing pen tool), maybe keep it?
-          // "Settings" popup definitely close.
-          // Let's close settings/export/image/layers categories.
-          // Keep tool categories open?
-          // "empty space on canvas is clicked then active popups should close"
-          // The tool sub-bar is not exactly a popup, it's a toolbar extension.
-          // But Settings IS a popup.
           if (prev === 'settings' || prev === 'export' || prev === 'image' || prev === 'layers' || prev === 'projects') {
             return null;
           }
           return prev;
         });
-
-        // Deselect objects (Fabric usually handles this, but we can enforce)
-        // canvas.discardActiveObject();
-        // canvas.requestRenderAll();
       }
     };
 
@@ -871,7 +895,7 @@ const CanvasEditor = () => {
         {showMobileSettings && (
           <div className="absolute inset-0 z-50 flex justify-end lg:justify-start pointer-events-none">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-background/50 backdrop-blur-sm pointer-events-auto" onClick={() => setShowMobileSettings(false)} />
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-sm pointer-events-auto" onClick={() => isMobile && setShowMobileSettings(false)} />
 
             {/* Drawer Panel */}
             <div className="relative w-80 h-full bg-background/95 backdrop-blur-md shadow-2xl animate-slide-right flex flex-col border-r border-white/10 pointer-events-auto">
@@ -930,7 +954,9 @@ const CanvasEditor = () => {
                       onMaxHistoryChange={setMaxHistory}
                       onDeleteAll={handleDeleteEverything}
                       canvasSize={canvasSize}
-                      onCanvasSizeChange={setCanvasSize}
+                      onCanvasSizeChange={handleManualSizeChange}
+                      canvasUnit={canvasUnit}
+                      onCanvasUnitChange={setCanvasUnit}
                     />
                   </TabsContent>
                 </div>
@@ -1096,7 +1122,7 @@ const CanvasEditor = () => {
             {/* Backdrop - darker on mobile, subtler on desktop */}
             <div
               className="absolute inset-0 bg-background/20 backdrop-blur-[1px] pointer-events-auto"
-              onClick={() => setShowLayersPanel(false)}
+              onClick={() => isMobile && setShowLayersPanel(false)}
             />
 
             {/* Drawer Panel */}
@@ -1228,6 +1254,7 @@ const CanvasEditor = () => {
         textStyle={textStyle}
         onTextStyleChange={handleTextStyleChange}
         onApply={handleApplyText}
+        isMobile={isMobile}
       />
     </div>
   );
