@@ -303,9 +303,6 @@ export const LayerTreeItem = ({
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40 z-[1000]">
-                            <DropdownMenuItem onClick={() => onCreateNode(node.id, 'project')}>
-                                <Plus className="w-4 h-4 mr-2" /> New Project
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onCreateNode(node.id, 'layer')}>
                                 <Plus className="w-4 h-4 mr-2" /> New Layer
                             </DropdownMenuItem>

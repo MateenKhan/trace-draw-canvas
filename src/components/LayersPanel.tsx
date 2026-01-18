@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Canvas, FabricObject } from "fabric";
-import { Layers as LayersIcon, FolderKanban, ChevronRight, ChevronDown, Plus, MoreVertical, Search, Pencil, Trash2, Eye, EyeOff, X, FolderPlus, PlusSquare, Undo, Redo, Square, Circle, Triangle as TriangleIcon, Type, Image as ImageIcon, Filter, MousePointer2, Copy } from "lucide-react";
+import { Layers as LayersIcon, FolderKanban, ChevronRight, ChevronDown, Plus, MoreVertical, Search, Pencil, Trash2, Eye, EyeOff, X, FolderPlus, Undo, Redo, Square, Circle, Triangle as TriangleIcon, Type, Image as ImageIcon, Filter, MousePointer2, Copy } from "lucide-react";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,29 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
   const [lastDroppedId, setLastDroppedId] = useState<string | null>(null);
   const [lastOriginId, setLastOriginId] = useState<string | null>(null);
   const [offsetLeft, setOffsetLeft] = useState(0);
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const objectsMap = useMemo(() => {
+    const map: Record<string, FabricObject[]> = {};
+    objects.forEach(obj => {
+      const lid = (obj as any).layerId || 'layer_base';
+      if (!map[lid]) map[lid] = [];
+      map[lid].push(obj);
+    });
+    return map;
+  }, [objects, version]);
+
+  const flattenedItems = useMemo(() => {
+    return flattenTree(tree, objectsMap, tree.rootIds);
+  }, [tree, objectsMap, version]);
+
+  const selectedItems = useMemo(() => {
+    return flattenedItems.filter(item => selectedIds.has(item.id));
+  }, [selectedIds, flattenedItems]);
+
+  const isAllSelected = flattenedItems.length > 0 && selectedIds.size === flattenedItems.length;
 
   useEffect(() => {
     if (lastDroppedId || lastOriginId) {
@@ -173,19 +197,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     };
   }, [canvas, activeNodeId, tree]);
 
-  const objectsMap = useMemo(() => {
-    const map: Record<string, FabricObject[]> = {};
-    objects.forEach(obj => {
-      const lid = (obj as any).layerId || 'layer_base';
-      if (!map[lid]) map[lid] = [];
-      map[lid].push(obj);
-    });
-    return map;
-  }, [objects, version]);
 
-  const flattenedItems = useMemo(() => {
-    return flattenTree(tree, objectsMap, tree.rootIds);
-  }, [tree, objectsMap, version]);
 
   // Sync Canvas Z-Order based on Layers Panel Hierarchy
   useEffect(() => {
@@ -299,7 +311,6 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       objectsToRemove.forEach(obj => canvas?.remove(obj));
       return { ...prev, nodes: nextNodes };
     });
-    toast.success("Deleted");
   }, [canvas, tree.rootIds]);
 
   const handleRenameNode = (id: string, name: string) => {
@@ -334,14 +345,13 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
         }
       };
     });
-    toast.success("Layer reordered");
   };
 
   const handleGroup = () => {
     if (selectedIds.size < 1) return;
 
     const newId = generateId();
-    const itemsToGroup = flattenedItems.filter(i => selectedIds.has(i.id));
+    const itemsToGroup = selectedItems;
 
     // Find a suitable parent (parent of the first selected item)
     const firstItem = itemsToGroup[0];
@@ -383,17 +393,16 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
         }
       });
 
-      // Insert new layer into parent's children
+      // Insert new layer into parent's children at the top
       nextNodes[parentId] = {
         ...nextNodes[parentId],
-        children: [...parent.children.filter(cid => !selectedIds.has(cid)), newId]
+        children: [newId, ...parent.children.filter(cid => !selectedIds.has(cid))]
       };
 
       return { ...prev, nodes: nextNodes };
     });
 
     setSelectedIds(new Set([newId]));
-    toast.success("Items grouped");
   };
 
   const handleUngroup = () => {
@@ -441,25 +450,46 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     });
 
     setSelectedIds(new Set());
-    toast.success("Items ungrouped");
   };
 
-  // Selection state
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const handleToggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const isSelected = next.has(id);
+      const shouldSelect = !isSelected;
+
+      const getRecursiveIds = (targetId: string): string[] => {
+        const ids: string[] = [targetId];
+        const item = flattenedItems.find(i => i.id === targetId);
+
+        if (item?.type === 'node') {
+          // Add all child nodes recursively
+          const node = tree.nodes[targetId];
+          if (node) {
+            node.children.forEach(childId => {
+              ids.push(...getRecursiveIds(childId));
+            });
+            // Add all shapes in this node
+            const nodeShapes = objects.filter(obj => (obj as any).layerId === targetId);
+            nodeShapes.forEach((shape, idx) => {
+              const shapeId = (shape as any).id || `shape_${targetId}_${idx}`;
+              ids.push(shapeId);
+            });
+          }
+        }
+        return ids;
+      };
+
+      const idsToToggle = getRecursiveIds(id);
+      idsToToggle.forEach(tid => {
+        if (shouldSelect) next.add(tid);
+        else next.delete(tid);
+      });
+
       return next;
     });
   };
 
-  const selectedItems = useMemo(() => {
-    return flattenedItems.filter(item => selectedIds.has(item.id));
-  }, [selectedIds, flattenedItems]);
-
-  const isAllSelected = flattenedItems.length > 0 && selectedIds.size === flattenedItems.length;
   const handleSelectAll = (checked: boolean | string) => {
     if (checked === true) {
       setSelectedIds(new Set(flattenedItems.map(i => i.id)));
@@ -520,14 +550,12 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
 
     setSelectedIds(new Set());
     canvas?.requestRenderAll();
-    toast.success("Selected items deleted");
   };
 
   const handleToggleSelectionVisibility = () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
-    const selectedItems = flattenedItems.filter(item => selectedIds.has(item.id));
     const isAnyVisible = selectedItems.some(item => {
       if (item.type === 'shape') return item.object.visible;
       const shapesInLayer = objects.filter(obj => (obj as any).layerId === item.id);
@@ -547,7 +575,6 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     if (!targetVisibility) canvas?.discardActiveObject();
     canvas?.requestRenderAll();
     setVersion(v => v + 1);
-    toast.success(targetVisibility ? "Selection Visible" : "Selection Hidden");
   };
 
   const handleCloneSelected = async () => {
@@ -625,7 +652,6 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     setTree(prev => ({ ...prev, nodes: nextNodes }));
     canvas.requestRenderAll();
     setVersion(v => v + 1);
-    toast.success("Selection cloned");
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -685,7 +711,6 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       setVersion(v => v + 1);
       canvas?.requestRenderAll();
       canvas?.fire('object:modified', { target: activeObj });
-      toast.success("Shape reordered");
       return;
     }
 
@@ -750,7 +775,6 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       nextTree.nodes[activeId] = { ...node, parentId: newParentId };
       return nextTree;
     });
-    toast.success("Hierarchy updated");
   };
 
   const shouldShowNode = useCallback((nodeId: string): boolean => {
@@ -850,58 +874,54 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
 
         {/* Scrollable Actions Area */}
         <div className="flex-1 overflow-x-auto flex items-center gap-0.5 mx-2 px-1 border-x border-border/20 custom-horizontal-scrollbar">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
-            onClick={() => handleCreateNode(activeLayerId, 'layer')}
-            title="New Layer"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
-            onClick={() => handleCreateNode(activeLayerId, 'project')}
-            title="New Project"
-          >
-            <FolderPlus className="w-4 h-4" />
-          </Button>
+          {selectedIds.size === 0 && !isAllSelected ? (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
+                onClick={() => handleCreateNode(activeLayerId, 'layer')}
+                title="New Layer"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
 
-          <div className="w-px h-4 bg-border/40 mx-1 shrink-0" />
+              <div className="w-px h-4 bg-border/40 mx-1 shrink-0" />
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 disabled:opacity-30"
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo"
-          >
-            <Undo className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 disabled:opacity-30"
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Redo"
-          >
-            <Redo className="w-4 h-4" />
-          </Button>
-
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-border/40">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 disabled:opacity-30"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title="Undo"
+              >
+                <Undo className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 disabled:opacity-30"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title="Redo"
+              >
+                <Redo className="w-4 h-4" />
+              </Button>
+            </>
+          ) : (
+            <div className="flex items-center gap-0.5 flex-1">
+              <span className="text-[10px] font-bold text-primary mr-2 uppercase animate-in fade-in slide-in-from-left-2">
+                {selectedIds.size} Selected
+              </span>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-primary hover:bg-primary/10 shrink-0"
                 onClick={handleGroup}
-                title="Group"
+                title="Group Selected"
               >
-                <PlusSquare className="w-4 h-4" />
+                <FolderPlus className="w-4 h-4" />
               </Button>
               <Button
                 variant="ghost"

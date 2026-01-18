@@ -75,7 +75,12 @@ export function flattenTree(
         });
 
         if (node.expanded) {
-            // Add shapes of this node
+            // 1. Add child nodes first so they appear at the top
+            if (node.children.length > 0) {
+                flattened.push(...flattenTree(state, objectsMap, node.children, depth + 1, id));
+            }
+
+            // 2. Add shapes of this node after child nodes
             const shapes = objectsMap[id] || [];
             shapes.forEach((obj, idx) => {
                 const shapeId = obj.id || `shape_${id}_${idx}`;
@@ -87,11 +92,6 @@ export function flattenTree(
                     parentId: id
                 });
             });
-
-            // Add child nodes
-            if (node.children.length > 0) {
-                flattened.push(...flattenTree(state, objectsMap, node.children, depth + 1, id));
-            }
         }
     });
 
