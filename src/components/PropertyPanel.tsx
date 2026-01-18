@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
   Ruler,
   Lock,
   Unlock,
+  Check,
 } from "lucide-react";
 import {
   DrawingTool,
@@ -86,35 +87,57 @@ export const PropertyPanel = ({
   const [unit, setUnit] = useState<'px' | 'in' | 'mm' | 'ft'>('in');
   const [lockAspect, setLockAspect] = useState(true);
 
+  // Local input state
+  const [widthInput, setWidthInput] = useState('');
+  const [heightInput, setHeightInput] = useState('');
+
   // Helper to format values based on unit
   const formatValue = (px: number) => {
     const val = px / CONVERSION[unit];
-    return unit === 'px' ? Math.round(val) : Number(val.toFixed(2));
+    return unit === 'px' ? Math.round(val).toString() : val.toFixed(2);
   };
 
-  const handleDimensionChange = (type: 'width' | 'height', value: string) => {
+  // Sync inputs with selected object dimensions
+  useEffect(() => {
+    if (selectedObjectDimensions) {
+      setWidthInput(formatValue(selectedObjectDimensions.width));
+      setHeightInput(formatValue(selectedObjectDimensions.height));
+    }
+  }, [selectedObjectDimensions, unit]);
+
+  const handleInputChange = (type: 'width' | 'height', value: string) => {
+    if (type === 'width') setWidthInput(value);
+    else setHeightInput(value);
+
+    if (lockAspect && selectedObjectDimensions) {
+      const numVal = parseFloat(value);
+      if (!isNaN(numVal)) {
+        const currentW = selectedObjectDimensions.width;
+        const currentH = selectedObjectDimensions.height;
+        const aspect = currentW / currentH;
+
+        if (type === 'width') {
+          // H = W / aspect
+          const newH = numVal / aspect;
+          setHeightInput(unit === 'px' ? Math.round(newH).toString() : newH.toFixed(2));
+        } else {
+          // W = H * aspect
+          const newW = numVal * aspect;
+          setWidthInput(unit === 'px' ? Math.round(newW).toString() : newW.toFixed(2));
+        }
+      }
+    }
+  };
+
+  const handleApply = () => {
     if (!selectedObjectDimensions || !onDimensionsChange) return;
 
-    const numVal = parseFloat(value);
-    if (isNaN(numVal)) return;
+    const w = parseFloat(widthInput);
+    const h = parseFloat(heightInput);
 
-    const pxVal = numVal * CONVERSION[unit];
-    const currentW = selectedObjectDimensions.width;
-    const currentH = selectedObjectDimensions.height;
-    const aspect = currentW / currentH;
-
-    let newW = currentW;
-    let newH = currentH;
-
-    if (type === 'width') {
-      newW = pxVal;
-      if (lockAspect) newH = newW / aspect;
-    } else {
-      newH = pxVal;
-      if (lockAspect) newW = newH * aspect;
+    if (!isNaN(w) && !isNaN(h)) {
+      onDimensionsChange(w * CONVERSION[unit], h * CONVERSION[unit]);
     }
-
-    onDimensionsChange(newW, newH);
   };
 
   return (
@@ -152,52 +175,60 @@ export const PropertyPanel = ({
                 <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                   Units
                 </Label>
-                <Select value={unit} onValueChange={(v: any) => setUnit(v)}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="px">Pixels (px)</SelectItem>
-                    <SelectItem value="in">Inches (in)</SelectItem>
-                    <SelectItem value="mm">Millimeters (mm)</SelectItem>
-                    <SelectItem value="ft">Feet (ft)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={unit} onValueChange={(v: any) => setUnit(v)}>
+                    <SelectTrigger className="h-8 text-xs flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="px">Pixels (px)</SelectItem>
+                      <SelectItem value="in">Inches (in)</SelectItem>
+                      <SelectItem value="mm">Millimeters (mm)</SelectItem>
+                      <SelectItem value="ft">Feet (ft)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Dimensions Inputs */}
-              <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-end">
-                <div className="space-y-2">
-                  <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Width</Label>
-                  <Input
-                    type="number"
-                    step={unit === 'px' ? 1 : 0.1}
-                    value={formatValue(selectedObjectDimensions.width)}
-                    onChange={(e) => handleDimensionChange('width', e.target.value)}
-                    className="h-8 text-xs font-mono"
-                  />
+              <div className="flex items-end gap-2">
+                <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-end flex-1">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Width</Label>
+                    <Input
+                      type="number"
+                      step={unit === 'px' ? 1 : 0.1}
+                      value={widthInput}
+                      onChange={(e) => handleInputChange('width', e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 mb-0.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setLockAspect(!lockAspect)}
+                    title={lockAspect ? "Unlock Aspect Ratio" : "Lock Aspect Ratio"}
+                  >
+                    {lockAspect ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                  </Button>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Height</Label>
+                    <Input
+                      type="number"
+                      step={unit === 'px' ? 1 : 0.1}
+                      value={heightInput}
+                      onChange={(e) => handleInputChange('height', e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 mb-0.5 text-muted-foreground hover:text-foreground"
-                  onClick={() => setLockAspect(!lockAspect)}
-                  title={lockAspect ? "Unlock Aspect Ratio" : "Lock Aspect Ratio"}
-                >
-                  {lockAspect ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                <Button onClick={handleApply} size="icon" className="h-8 w-8 mb-0.5" title="Apply Size">
+                  <Check className="w-4 h-4" />
                 </Button>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Height</Label>
-                  <Input
-                    type="number"
-                    step={unit === 'px' ? 1 : 0.1}
-                    value={formatValue(selectedObjectDimensions.height)}
-                    onChange={(e) => handleDimensionChange('height', e.target.value)}
-                    className="h-8 text-xs font-mono"
-                  />
-                </div>
               </div>
 
               <div className="text-[10px] text-muted-foreground text-center pt-2">

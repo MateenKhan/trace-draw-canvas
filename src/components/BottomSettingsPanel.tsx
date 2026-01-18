@@ -59,6 +59,8 @@ interface BottomSettingsPanelProps {
     maxHistory: number;
     onMaxHistoryChange: (value: number) => void;
     onDeleteAll: () => void;
+    canvasSize?: { width: number; height: number };
+    onCanvasSizeChange?: (size: { width: number; height: number }) => void;
 }
 
 export const BottomSettingsPanel = ({
@@ -75,6 +77,8 @@ export const BottomSettingsPanel = ({
     maxHistory,
     onMaxHistoryChange,
     onDeleteAll,
+    canvasSize,
+    onCanvasSizeChange,
 }: BottomSettingsPanelProps) => {
 
     const updateTraceSetting = <K extends keyof TraceSettings>(
@@ -87,6 +91,40 @@ export const BottomSettingsPanel = ({
     return (
         <div className="w-full max-h-[50vh] overflow-y-auto bg-background/10 backdrop-blur-xl border-t border-white/10 shadow-2xl p-4 rounded-t-xl">
             <Accordion type="single" collapsible className="w-full">
+                {/* Workspace Settings */}
+                <AccordionItem value="workspace">
+                    <AccordionTrigger>Workspace (Canvas) Size</AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase text-muted-foreground font-mono">Width (px)</Label>
+                                <Input
+                                    type="number"
+                                    value={canvasSize?.width}
+                                    onChange={(e) => onCanvasSizeChange?.({ ...canvasSize!, width: parseInt(e.target.value) || 0 })}
+                                    className="h-8 text-xs font-mono"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase text-muted-foreground font-mono">Height (px)</Label>
+                                <Input
+                                    type="number"
+                                    value={canvasSize?.height}
+                                    onChange={(e) => onCanvasSizeChange?.({ ...canvasSize!, height: parseInt(e.target.value) || 0 })}
+                                    className="h-8 text-xs font-mono"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                            <Button variant="secondary" size="sm" className="h-7 text-[10px] px-2" onClick={() => onCanvasSizeChange?.({ width: 800, height: 600 })}>800x600</Button>
+                            <Button variant="secondary" size="sm" className="h-7 text-[10px] px-2" onClick={() => onCanvasSizeChange?.({ width: 960, height: 960 })}>10" Square</Button>
+                            <Button variant="secondary" size="sm" className="h-7 text-[10px] px-2" onClick={() => onCanvasSizeChange?.({ width: 1280, height: 720 })}>720p</Button>
+                            <Button variant="secondary" size="sm" className="h-7 text-[10px] px-2" onClick={() => onCanvasSizeChange?.({ width: 1920, height: 1080 })}>1080p</Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Adjusting canvas size will affect the total drawing area.</p>
+                    </AccordionContent>
+                </AccordionItem>
+
                 {/* Application Settings */}
                 <AccordionItem value="application">
                     <AccordionTrigger>Application Settings</AccordionTrigger>
@@ -404,6 +442,6 @@ export const BottomSettingsPanel = ({
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
-        </div>
+        </div >
     );
 };
