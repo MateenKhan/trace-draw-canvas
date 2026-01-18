@@ -18,7 +18,7 @@ export interface LayerTreeState {
 
 export const generateId = () => `node_${Math.random().toString(36).substr(2, 9)}`;
 
-export const createInitialState = (baseProjectName: string = "Project"): LayerTreeState => {
+export const createInitialState = (baseProjectName: string = "Base Project"): LayerTreeState => {
     const baseId = 'layer_base';
     const projectId = 'root_project';
 

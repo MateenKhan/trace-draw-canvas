@@ -355,7 +355,7 @@ const CanvasEditor = () => {
       console.log('[CanvasEditor] Thumbnail generated, length:', thumbnail.length);
 
       console.log('[CanvasEditor] Calling createProject...');
-      const project = createProject(name, canvasJson, thumbnail);
+      const project = createProject(name || 'Base Project', canvasJson, thumbnail);
       console.log('[CanvasEditor] Project created successfully:', {
         id: project.id,
         name: project.name
@@ -808,7 +808,7 @@ const CanvasEditor = () => {
               <div className="flex-1 overflow-hidden">
                 <LayersPanel
                   canvas={canvas}
-                  projectName={projects.find(p => p.id === activeProjectId)?.name || "Untitled Project"}
+                  projectName={projects.find(p => p.id === activeProjectId)?.name || "Base Project"}
                   onClose={() => setShowLayersPanel(false)}
                   onUndo={undo}
                   onRedo={redo}

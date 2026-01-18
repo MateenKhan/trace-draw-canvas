@@ -38,6 +38,17 @@ import {
 import { LayerTreeItem } from "@/components/layers/LayerTreeItem";
 import { ShapeItem } from "@/components/layers/ShapeItem";
 import { LayerTreeState, createInitialState, generateId, flattenTree } from "@/lib/layer-tree";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface LayersPanelProps {
   canvas: Canvas | null;
@@ -50,6 +61,7 @@ interface LayersPanelProps {
 }
 
 export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canUndo, canRedo }: LayersPanelProps) => {
+  const isMobile = useIsMobile();
   // Tree State - Load from localStorage or create initial
   const [tree, setTree] = useState<LayerTreeState>(() => {
     try {
@@ -83,6 +95,13 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    id?: string;
+    isMultiple: boolean;
+  }>({ isOpen: false, isMultiple: false });
 
   const objectsMap = useMemo(() => {
     const map: Record<string, FabricObject[]> = {};
@@ -119,7 +138,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 150, tolerance: 12 },
+      activationConstraint: { delay: 250, tolerance: 10 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -280,7 +299,10 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       toast.error("Cannot delete root/base elements");
       return;
     }
+    setDeleteConfirm({ isOpen: true, id, isMultiple: false });
+  }, [tree.rootIds]);
 
+  const confirmDeleteNode = (id: string) => {
     setTree(prev => {
       const nextNodes = { ...prev.nodes };
       const allCanvasObjects = canvas?.getObjects() || [];
@@ -311,7 +333,9 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       objectsToRemove.forEach(obj => canvas?.remove(obj));
       return { ...prev, nodes: nextNodes };
     });
-  }, [canvas, tree.rootIds]);
+    setDeleteConfirm({ isOpen: false, isMultiple: false });
+    toast.success("Layer deleted");
+  };
 
   const handleRenameNode = (id: string, name: string) => {
     setTree(prev => ({
@@ -499,9 +523,12 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
   };
 
   const handleDeleteSelected = () => {
-    const idsToDelete = Array.from(selectedIds);
-    if (idsToDelete.length === 0) return;
+    if (selectedIds.size === 0) return;
+    setDeleteConfirm({ isOpen: true, isMultiple: true });
+  };
 
+  const confirmDeleteSelected = () => {
+    const idsToDelete = Array.from(selectedIds);
     setTree(prev => {
       let nextNodes = { ...prev.nodes };
       const allCanvasObjects = canvas?.getObjects() || [];
@@ -550,6 +577,8 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
 
     setSelectedIds(new Set());
     canvas?.requestRenderAll();
+    setDeleteConfirm({ isOpen: false, isMultiple: false });
+    toast.success("Selection deleted");
   };
 
   const handleToggleSelectionVisibility = () => {
@@ -684,7 +713,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     setLastOriginId(activeId);
     setLastDroppedId(activeId);
 
-    const horizontalOffset = offsetLeft;
+    const horizontalOffset = event.delta.x;
     setOffsetLeft(0);
 
     const activeItem = flattenedItems.find(i => i.id === activeId);
@@ -726,52 +755,91 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     setTree(prev => {
       const nextTree = { ...prev, nodes: { ...prev.nodes } };
       const node = nextTree.nodes[activeId];
+      if (!node) return prev; // Safety
+
       const oldParentId = node.parentId!;
       const oldParent = nextTree.nodes[oldParentId];
-      nextTree.nodes[oldParentId] = { ...oldParent, children: oldParent.children.filter(id => id !== activeId) };
+      if (oldParent) {
+        nextTree.nodes[oldParentId] = { ...oldParent, children: oldParent.children.filter(id => id !== activeId) };
+      }
 
-      // 2. Determine new Parent and Index
-      const threshold = 5; // Reduced threshold for better nesting sensitivity
-      const effectiveDepthDelta = Math.abs(horizontalOffset) > threshold ? Math.round(horizontalOffset / 10) : 0;
+      // 2. Determine new Parent and Index based on horizontal movement
+      const indentStep = 18; // Larger step for better mobile control
+      const effectiveDepthDelta = Math.round(horizontalOffset / indentStep);
 
       const itemBefore = overIdxInFlat > 0 ? itemsWithoutActive[overIdxInFlat - 1] : null;
-      let newDepth = itemBefore ? itemBefore.depth : 0;
+
+      // Allow fluid movement based on initial depth
+      const initialDepth = activeItem.depth;
+      let newDepth = initialDepth + effectiveDepthDelta;
+
       if (itemBefore) {
-        newDepth = Math.max(0, Math.min(itemBefore.depth + (itemBefore.type === 'node' ? 1 : 0), itemBefore.depth + effectiveDepthDelta));
+        // Limit depth to +1 of the item above
+        const maxPossibleDepth = itemBefore.depth + (itemBefore.type === 'node' ? 1 : 0);
+        newDepth = Math.max(0, Math.min(maxPossibleDepth, newDepth));
+      } else {
+        newDepth = 0;
       }
 
       let newParentId = tree.rootIds[0];
+
       if (itemBefore) {
         if (newDepth > itemBefore.depth && itemBefore.type === 'node') {
+          // NESTING: Become a child of the node directly above
           newParentId = itemBefore.id;
+        } else if (newDepth === itemBefore.depth) {
+          // SIBLING: Same parent as the item directly above
+          newParentId = itemBefore.parentId || tree.rootIds[0];
         } else {
-          let currId: string | null = itemBefore.id;
-          let currDepth = itemBefore.depth;
+          // PROMOTION: Walk up the tree to find the correct ancestor
+          let currId: string | null = itemBefore.type === 'node' ? itemBefore.id : itemBefore.parentId;
+          let currDepth = itemBefore.type === 'node' ? itemBefore.depth : itemBefore.depth - 1;
+
           while (currId && currDepth > newDepth) {
-            currId = nextTree.nodes[currId]?.parentId || null;
+            const currNode = nextTree.nodes[currId];
+            currId = currNode?.parentId || null;
             currDepth--;
           }
-          newParentId = (currId ? nextTree.nodes[currId]?.parentId : null) || tree.rootIds[0];
+          newParentId = (currId ? (nextTree.nodes[currId]?.parentId || tree.rootIds[0]) : tree.rootIds[0]);
         }
       }
 
+      // Final constraint: root project must be parent if nothing found
+      if (!nextTree.nodes[newParentId]) newParentId = tree.rootIds[0];
+
       const newParent = nextTree.nodes[newParentId];
       const newChildren = [...newParent.children];
+
+      // Determine insertion index
+      // We look at the overId item. If it's a shape, we insert into its parent.
       let targetIdForIndex = overId;
       const overItemInFlat = itemsWithoutActive[overIdxInFlat];
-      if (overItemInFlat.type === 'shape') targetIdForIndex = overItemInFlat.parentId;
+      if (overItemInFlat.type === 'shape') {
+        // If we're dropping over a shape, we want to be in the same layer
+        // But the targetIdForIndex for the children array must be a node ID if we're reordering NOdes
+        // Actually, node children array ONLY contains node IDs.
+        // So we need to find the node that follows the shape, or just push to end of parent's children.
+        targetIdForIndex = overItemInFlat.parentId;
+      }
 
       const newIdx = newChildren.indexOf(targetIdForIndex);
       if (newIdx !== -1) {
         const activeIdxInFlat = flattenedItems.findIndex(i => i.id === activeId);
         const overIdxInFlatOrg = flattenedItems.findIndex(i => i.id === overId);
-        if (activeIdxInFlat < overIdxInFlatOrg) newChildren.splice(newIdx + 1, 0, activeId);
-        else newChildren.splice(newIdx, 0, activeId);
+
+        if (activeIdxInFlat < overIdxInFlatOrg) {
+          // Dropping "down" below the target
+          newChildren.splice(newIdx + 1, 0, activeId);
+        } else {
+          // Dropping "up" above the target
+          newChildren.splice(newIdx, 0, activeId);
+        }
       } else {
-        newChildren.push(activeId);
+        // Fallback: add to the beginning of the new parent
+        newChildren.unshift(activeId);
       }
 
-      nextTree.nodes[newParentId] = { ...newParent, children: newChildren, expanded: true };
+      nextTree.nodes[newParentId] = { ...newParent, children: Array.from(new Set(newChildren)), expanded: true };
       nextTree.nodes[activeId] = { ...node, parentId: newParentId };
       return nextTree;
     });
@@ -797,8 +865,16 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
         return item.object.type === typeFilter;
       });
       // Further filter: remove nodes that have no matching children
+      // Show nodes if they have any matching shape as a descendant
       const matchingItems = filteredItems.filter(i => i.type === 'shape');
-      const validNodeIds = new Set(matchingItems.map(i => i.parentId));
+      const validNodeIds = new Set<string>();
+      matchingItems.forEach(item => {
+        let currId: string | null = item.parentId;
+        while (currId) {
+          validNodeIds.add(currId);
+          currId = tree.nodes[currId]?.parentId || null;
+        }
+      });
       filteredItems = filteredItems.filter(i => i.type === 'shape' || validNodeIds.has(i.id));
     }
 
@@ -911,9 +987,22 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
             </>
           ) : (
             <div className="flex items-center gap-0.5 flex-1">
-              <span className="text-[10px] font-bold text-primary mr-2 uppercase animate-in fade-in slide-in-from-left-2">
-                {selectedIds.size} Selected
-              </span>
+              {!isMobile && (
+                <span className="text-[10px] font-bold text-primary mr-2 uppercase animate-in fade-in slide-in-from-left-2 shrink-0">
+                  {selectedIds.size} Selected
+                </span>
+              )}
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
+                onClick={handleDeleteSelected}
+                title="Delete"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -923,6 +1012,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
               >
                 <FolderPlus className="w-4 h-4" />
               </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -932,6 +1022,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
               >
                 <LayersIcon className="w-4 h-4 rotate-180" />
               </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -945,6 +1036,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
                   return shapesInLayer.some(s => s.visible);
                 }) ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -953,15 +1045,6 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
                 title="Clone Selection"
               >
                 <Copy className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
-                onClick={handleDeleteSelected}
-                title="Delete"
-              >
-                <Trash2 className="w-4 h-4" />
               </Button>
             </div>
           )}
@@ -1061,9 +1144,20 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
         </div>
         <DragOverlay dropAnimation={null} zIndex={1000}>
           {activeDragId ? (
-            <div className="opacity-95 bg-background border p-2 rounded shadow-2xl min-w-[200px] text-xs font-medium cursor-grabbing pointer-events-none ring-2 ring-primary/30 backdrop-blur-md" style={{ touchAction: 'none' }}>
+            <div
+              className="opacity-95 bg-background border p-2 rounded shadow-2xl min-w-[200px] text-xs font-medium cursor-grabbing pointer-events-none ring-2 ring-primary/30 backdrop-blur-md"
+              style={{
+                touchAction: 'none',
+                transform: `translateX(${offsetLeft}px)`,
+                // margin-left removed to avoid double-shifting with transform
+              }}
+            >
               <div className="flex items-center gap-2">
-                {activeDragData?.type === 'node' ? (tree.nodes[activeDragId]?.type === 'project' ? <FolderKanban className="w-3.5 h-3.5" /> : <LayersIcon className="w-3.5 h-3.5" />) : <Plus className="w-3.5 h-3.5" />}
+                {activeDragData?.type === 'node' ? (
+                  tree.nodes[activeDragId]?.type === 'project' ? <FolderKanban className="w-3.5 h-3.5" /> : <LayersIcon className="w-3.5 h-3.5" />
+                ) : (
+                  <MousePointer2 className="w-3.5 h-3.5" />
+                )}
                 <span className="truncate">{activeDragData?.type === 'node' ? tree.nodes[activeDragId]?.name : (activeDragData?.object?.name || activeDragData?.object?.type || 'Shape')}</span>
               </div>
             </div>
@@ -1071,6 +1165,41 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
         </DragOverlay>
       </DndContext>
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteConfirm.isOpen}
+        onOpenChange={(open) => !open && setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      >
+        <AlertDialogContent className="glass">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="w-5 h-5" />
+              Confirm Delete
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              {deleteConfirm.isMultiple
+                ? `Are you sure you want to delete ${selectedIds.size} selected items? This will remove all nested objects and cannot be undone.`
+                : "Are you sure you want to delete this layer? This will remove all nested objects and cannot be undone."
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-secondary/50 border-none hover:bg-secondary">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirm.isMultiple) {
+                  confirmDeleteSelected();
+                } else if (deleteConfirm.id) {
+                  confirmDeleteNode(deleteConfirm.id);
+                }
+              }}
+            >
+              Delete Everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Localized Bottom Stats Area */}
       <div className="mt-auto border-t border-border/40 p-2 bg-background/50 backdrop-blur shrink-0 animate-slide-up-local">
         <div className="flex items-center justify-between px-2 text-[10px] text-muted-foreground uppercase font-semibold">

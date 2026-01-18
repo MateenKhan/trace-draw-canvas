@@ -51,7 +51,7 @@ export const ProjectsPanel = ({
   const handleCreateProject = useCallback(() => {
     if (isMobile) {
       // On mobile: create project immediately with default name
-      const defaultName = 'Untitled Project';
+      const defaultName = 'Base Project';
       console.log('[ProjectsPanel] Mobile: Creating project with default name:', defaultName);
       pendingNewProjectRef.current = true;
       onCreateProject(defaultName);
@@ -98,7 +98,7 @@ export const ProjectsPanel = ({
 
     // Find the most recently created project with default name
     // Projects are sorted newest first, so the first one with default name is the newest
-    const defaultName = 'Untitled Project';
+    const defaultName = 'Base Project';
     const newProject = projects.find(p => p.name === defaultName);
 
     if (newProject && editingId !== newProject.id) {
