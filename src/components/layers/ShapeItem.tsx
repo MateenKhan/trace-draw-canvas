@@ -225,8 +225,8 @@ export const ShapeItem = memo(({
             {/* Foreground Content */}
             <div
                 className={cn(
-                    "relative flex items-center gap-2 py-1 pr-1 pl-0 bg-background border rounded-lg z-10 shadow-sm active:bg-accent/10 transition-colors",
-                    isActive ? "border-primary/50 ring-1 ring-primary/20" : "border-transparent hover:bg-accent/5",
+                    "relative flex items-center gap-2 py-1 pr-1 pl-0 bg-transparent border border-white/5 rounded-lg z-10 shadow-sm active:bg-accent/10 transition-colors",
+                    isActive ? "border-primary/50 ring-1 ring-primary/20" : "hover:bg-accent/5",
                     isHighlighted && "ring-2 ring-primary animate-pulse-neon shadow-glow"
                 )}
                 style={{

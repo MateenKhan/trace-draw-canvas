@@ -962,9 +962,9 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
 
   if (!canvas) return null;
   return (
-    <div className="panel w-full animate-slide-up h-full flex flex-col overflow-hidden bg-background">
+    <div className="panel w-full animate-slide-up h-full flex flex-col overflow-hidden bg-transparent">
       {/* Redesigned Header Row 1 */}
-      <div className="flex items-center gap-2 h-11 px-3 border-b border-border/40 bg-background/95 backdrop-blur shrink-0">
+      <div className="flex items-center gap-2 h-11 px-3 border-b border-border/40 bg-transparent shrink-0">
         <Checkbox
           checked={isAllSelected}
           onCheckedChange={handleSelectAll}
