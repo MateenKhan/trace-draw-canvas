@@ -138,8 +138,10 @@ export const ShapeItem = memo(({
         const deltaX = e.clientX - startX.current;
         const deltaY = e.clientY - dragY.current;
 
-        // If vertical movement is dominant, this is a scroll, not a swipe
-        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        // 1. SCROLL GUARD (EXTREME):
+        // If we move vertically even a little bit (4px) before moving horizontally much,
+        // cancel swipe to allow scroll or reorder-drag to proceed.
+        if (Math.abs(deltaY) > 4 && Math.abs(deltaX) < 10) {
             isSwiping.current = false;
             setSwipeX(0);
             if (longPressTimer.current) {
@@ -149,16 +151,25 @@ export const ShapeItem = memo(({
             return;
         }
 
-        if (Math.abs(deltaX) > 5) {
+        // 2. HORIZONTAL INTENT CHECK:
+        // Require at least 25px of horizontal move and 3x horizontal ratio relative to vertical.
+        if (Math.abs(deltaX) < 25) return;
+
+        if (Math.abs(deltaX) > Math.abs(deltaY) * 3) {
             if (longPressTimer.current) {
                 clearTimeout(longPressTimer.current);
                 longPressTimer.current = null;
             }
-        }
 
-        if (deltaX < 0 && Math.abs(deltaX) < 100) {
-            setSwipeX(deltaX);
-        } else if (deltaX >= 0) {
+            const effectiveDelta = deltaX < 0 ? deltaX + 15 : deltaX - 15;
+
+            if (effectiveDelta < 0 && effectiveDelta > -120) {
+                setSwipeX(effectiveDelta);
+            } else if (effectiveDelta >= 0) {
+                setSwipeX(0);
+            }
+        } else {
+            isSwiping.current = false;
             setSwipeX(0);
         }
     };
@@ -168,20 +179,15 @@ export const ShapeItem = memo(({
             clearTimeout(longPressTimer.current);
             longPressTimer.current = null;
         }
-        isSwiping.current = false;
 
-        const delta = e.clientX - startX.current;
-        if (delta < -40) {
-            // Swiped Left far enough - keep it open
+        if (swipeX < -40) {
             setSwipeX(-80);
-
-            // Auto-close after 3 seconds
-            setTimeout(() => {
-                setSwipeX(0);
-            }, 3000);
+            setTimeout(() => setSwipeX(0), 5000);
         } else {
             setSwipeX(0);
         }
+
+        isSwiping.current = false;
     };
 
     const style = {
@@ -219,25 +225,33 @@ export const ShapeItem = memo(({
             {/* Foreground Content */}
             <div
                 className={cn(
-                    "relative flex items-center gap-1 p-1 bg-background border rounded-lg z-10 shadow-sm",
+                    "relative flex items-center gap-2 py-1 pr-1 pl-0 bg-background border rounded-lg z-10 shadow-sm active:bg-accent/10 transition-colors",
                     isActive ? "border-primary/50 ring-1 ring-primary/20" : "border-transparent hover:bg-accent/5",
                     isHighlighted && "ring-2 ring-primary animate-pulse-neon shadow-glow"
                 )}
-                style={{ transform: `translateX(${swipeX}px)` }}
+                style={{
+                    transform: `translateX(${swipeX}px)`,
+                    touchAction: 'pan-y'
+                }}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
-                onClick={onSelect}
+                onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button') || target.closest('input') || target.closest('[data-drag-handle]')) return;
+                    onSelect();
+                    onToggleSelect?.();
+                }}
             >
-                <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 -ml-1 touch-none shrink-0">
+                <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 touch-none shrink-0">
                     <GripVertical className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-foreground flex-shrink-0" />
                 </div>
 
                 <Checkbox
                     checked={isSelected}
                     onCheckedChange={onToggleSelect}
-                    className="h-3.5 w-3.5 ml-1 shrink-0"
+                    className="h-3.5 w-3.5 shrink-0"
                     onClick={(e) => e.stopPropagation()}
                 />
 

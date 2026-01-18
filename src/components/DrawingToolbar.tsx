@@ -32,6 +32,7 @@ import {
   History,
   Menu,
   Spline,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawingTool, StrokeStyle, FillStyle, TextStyle, ImageFilter } from "@/lib/types";
@@ -39,6 +40,14 @@ import { TraceSettings } from "@/lib/tracing";
 import { ExportMenu } from "@/components/ExportMenu";
 import { Canvas as FabricCanvas } from "fabric";
 import { BottomSettingsPanel } from "@/components/BottomSettingsPanel";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DrawingToolbarProps {
   activeTool: DrawingTool;
@@ -85,6 +94,7 @@ type DockCategory = 'select' | 'draw' | 'shapes' | 'sim' | '3d' | 'settings' | '
 
 export const DrawingToolbar = (props: DrawingToolbarProps) => {
   const [activeCategory, setActiveCategory] = useState<DockCategory>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Auto-select category based on active tool change (external)
   useEffect(() => {
@@ -381,11 +391,76 @@ export const DrawingToolbar = (props: DrawingToolbarProps) => {
               </button>
             }
           />
+
+          <div className="w-px h-8 bg-border/50 mx-1 shrink-0" />
+
+          <button
+            onClick={() => setShowHelp(true)}
+            className="flex flex-col items-center justify-center gap-1 min-w-[56px] h-14 rounded-xl transition-all text-muted-foreground hover:bg-primary/10 hover:text-primary active:scale-95"
+          >
+            <HelpCircle className="w-5 h-5 text-primary" />
+            <span className="text-[10px] font-bold text-primary">Help</span>
+          </button>
         </div>
       </div>
 
+      {/* Main App Guide / Help Dialog */}
+      <Dialog open={showHelp} onOpenChange={setShowHelp}>
+        <DialogContent className="glass max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-primary" />
+              TraceDraw Guide
+            </DialogTitle>
+            <DialogDescription>
+              Quick tips to master your workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-4 pt-2">
+              <section className="space-y-2">
+                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Navigation & Viewing</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <LegendItem icon={<MousePointer2 className="w-3.5 h-3.5" />} title="Selection" desc="Click shapes to move or edit. Drag to select multiple objects." />
+                  <LegendItem icon={<Hand className="w-3.5 h-3.5" />} title="Pan View" desc="Move the canvas around without affecting your artwork." />
+                  <LegendItem icon={<History className="w-3.5 h-3.5" />} title="History" desc="Access your undo/redo history to restore past versions." />
+                </div>
+              </section>
 
+              <section className="space-y-2">
+                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Advanced Features</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <LegendItem icon={<Sparkles className="w-3.5 h-3.5 text-orange-500" />} title="Auto-Trace" desc="Upload an image and use Trace to convert it into vector paths." />
+                  <LegendItem icon={<Play className="w-3.5 h-3.5 text-green-500" />} title="Simulation" desc="Generate G-Code and simulate your design as a toolpath." />
+                  <LegendItem icon={<Box className="w-3.5 h-3.5 text-blue-500" />} title="3D View" desc="Preview your 2D design with thickness and extrusion." />
+                </div>
+              </section>
 
+              <section className="space-y-2">
+                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Creation Tools</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <LegendItem icon={<Pen className="w-3.5 h-3.5" />} title="Pen & Pencil" desc="Free-hand drawing and smooth vector path creation." />
+                  <LegendItem icon={<Shapes className="w-3.5 h-3.5" />} title="Shapes" desc="Add geometric primitives like Circles, Squares, and Polygons." />
+                  <LegendItem icon={<Settings2 className="w-3.5 h-3.5" />} title="Settings" desc="Adjust stroke width, colors, opacity, and text properties." />
+                </div>
+              </section>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+// Internal Legend Item Component
+const LegendItem = ({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) => (
+  <div className="flex gap-3 p-2 rounded-lg bg-secondary/20 border border-border/20">
+    <div className="shrink-0 w-8 h-8 rounded bg-background flex items-center justify-center border border-border/40 shadow-sm">
+      {icon}
+    </div>
+    <div className="flex-1 space-y-0.5">
+      <div className="text-[11px] font-bold text-foreground leading-none">{title}</div>
+      <div className="text-[10px] text-muted-foreground leading-relaxed">{desc}</div>
+    </div>
+  </div>
+);

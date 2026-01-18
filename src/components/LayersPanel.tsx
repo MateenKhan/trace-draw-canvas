@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Canvas, FabricObject } from "fabric";
-import { Layers as LayersIcon, FolderKanban, ChevronRight, ChevronDown, Plus, MoreVertical, Search, Pencil, Trash2, Eye, EyeOff, X, FolderPlus, Undo, Redo, Square, Circle, Triangle as TriangleIcon, Type, Image as ImageIcon, Filter, MousePointer2, Copy } from "lucide-react";
+import { Layers as LayersIcon, FolderKanban, ChevronRight, ChevronDown, Plus, MoreVertical, Search, Pencil, Trash2, Eye, EyeOff, X, FolderPlus, Undo, Redo, Square, Circle, Triangle as TriangleIcon, Type, Image as ImageIcon, Filter, MousePointer2, Copy, HelpCircle, GripVertical } from "lucide-react";
 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,14 @@ import { LayerTreeItem } from "@/components/layers/LayerTreeItem";
 import { ShapeItem } from "@/components/layers/ShapeItem";
 import { LayerTreeState, createInitialState, generateId, flattenTree } from "@/lib/layer-tree";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -103,6 +111,8 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     isMultiple: boolean;
   }>({ isOpen: false, isMultiple: false });
 
+  const [showHelp, setShowHelp] = useState(false);
+
   const objectsMap = useMemo(() => {
     const map: Record<string, FabricObject[]> = {};
     objects.forEach(obj => {
@@ -123,6 +133,14 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
 
   const isAllSelected = flattenedItems.length > 0 && selectedIds.size === flattenedItems.length;
 
+  const canUngroup = useMemo(() => {
+    return selectedItems.some(item =>
+      item.type === 'node' &&
+      item.id !== tree.rootIds[0] &&
+      item.id !== 'layer_base'
+    );
+  }, [selectedItems, tree.rootIds]);
+
   useEffect(() => {
     if (lastDroppedId || lastOriginId) {
       const timer = setTimeout(() => {
@@ -138,7 +156,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 250, tolerance: 10 },
+      activationConstraint: { delay: 300, tolerance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -284,7 +302,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
         [newId]: newNode,
         [actualParentId]: {
           ...prev.nodes[actualParentId],
-          children: [newId, ...prev.nodes[actualParentId].children]
+          children: [...prev.nodes[actualParentId].children, newId]
         }
       },
       rootIds: prev.rootIds
@@ -476,7 +494,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     setSelectedIds(new Set());
   };
 
-  const handleToggleSelect = (id: string) => {
+  const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       const isSelected = next.has(id);
@@ -512,15 +530,15 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
 
       return next;
     });
-  };
+  }, [flattenedItems, tree.nodes, objects]);
 
-  const handleSelectAll = (checked: boolean | string) => {
+  const handleSelectAll = useCallback((checked: boolean | string) => {
     if (checked === true) {
       setSelectedIds(new Set(flattenedItems.map(i => i.id)));
     } else {
       setSelectedIds(new Set());
     }
-  };
+  }, [flattenedItems]);
 
   const handleDeleteSelected = () => {
     if (selectedIds.size === 0) return;
@@ -749,7 +767,17 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
     }
 
     const itemsWithoutActive = flattenedItems.filter(i => i.id !== activeId);
-    const overIdxInFlat = itemsWithoutActive.findIndex(i => i.id === overId);
+    let overIdxInFlat = itemsWithoutActive.findIndex(i => i.id === overId);
+
+    // Support dragging "in place" for hierarchy changes (dragging right/left without vertical movement)
+    if (overId === activeId) {
+      // Find where the active item was in the flat list
+      const originalIdx = flattenedItems.findIndex(i => i.id === activeId);
+      // In the itemsWithoutActive list, the "over" index for "in place" is simply the original index
+      // (because the item at originalIdx-1 is still at originalIdx-1)
+      overIdxInFlat = originalIdx;
+    }
+
     if (overIdxInFlat === -1) return;
 
     setTree(prev => {
@@ -813,12 +841,8 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
       // Determine insertion index
       // We look at the overId item. If it's a shape, we insert into its parent.
       let targetIdForIndex = overId;
-      const overItemInFlat = itemsWithoutActive[overIdxInFlat];
-      if (overItemInFlat.type === 'shape') {
-        // If we're dropping over a shape, we want to be in the same layer
-        // But the targetIdForIndex for the children array must be a node ID if we're reordering NOdes
-        // Actually, node children array ONLY contains node IDs.
-        // So we need to find the node that follows the shape, or just push to end of parent's children.
+      const overItemInFlat = overIdxInFlat !== -1 ? itemsWithoutActive[overIdxInFlat] : null;
+      if (overItemInFlat && overItemInFlat.type === 'shape') {
         targetIdForIndex = overItemInFlat.parentId;
       }
 
@@ -1006,6 +1030,20 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8 text-foreground hover:bg-accent shrink-0"
+                onClick={handleToggleSelectionVisibility}
+                title="Toggle Visibility"
+              >
+                {selectedItems.some(item => {
+                  if (item.type === 'shape') return item.object.visible;
+                  const shapesInLayer = objects.filter(obj => (obj as any).layerId === item.id);
+                  return shapesInLayer.some(s => s.visible);
+                }) ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-8 w-8 text-primary hover:bg-primary/10 shrink-0"
                 onClick={handleGroup}
                 title="Group Selected"
@@ -1016,25 +1054,12 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-foreground hover:bg-accent shrink-0"
+                className="h-8 w-8 text-foreground hover:bg-accent shrink-0 disabled:opacity-30"
                 onClick={handleUngroup}
+                disabled={!canUngroup}
                 title="Ungroup"
               >
                 <LayersIcon className="w-4 h-4 rotate-180" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-foreground hover:bg-accent shrink-0"
-                onClick={handleToggleSelectionVisibility}
-                title="Toggle Visibility"
-              >
-                {selectedItems.some(item => {
-                  if (item.type === 'shape') return item.object.visible;
-                  const shapesInLayer = objects.filter(obj => (obj as any).layerId === item.id);
-                  return shapesInLayer.some(s => s.visible);
-                }) ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </Button>
 
               <Button
@@ -1201,7 +1226,7 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
         </AlertDialogContent>
       </AlertDialog>
       {/* Localized Bottom Stats Area */}
-      <div className="mt-auto border-t border-border/40 p-2 bg-background/50 backdrop-blur shrink-0 animate-slide-up-local">
+      <div className="mt-auto border-t border-border/40 p-2 bg-background/95 backdrop-blur shrink-0 animate-slide-up-local">
         <div className="flex items-center justify-between px-2 text-[10px] text-muted-foreground uppercase font-semibold">
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1"><LayersIcon className="w-3 h-3" /> {flattenedItems.length} Total</span>
@@ -1209,9 +1234,78 @@ export const LayersPanel = ({ canvas, projectName, onClose, onUndo, onRedo, canU
               <span className="text-primary flex items-center gap-1"><MousePointer2 className="w-3 h-3" /> {selectedIds.size} Selected</span>
             )}
           </div>
-          <span>v{version}</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHelp(true)}
+              className="p-1.5 hover:text-primary transition-colors cursor-help bg-secondary/30 rounded-full"
+              title="View icon legends"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+            <span>v{version}</span>
+          </div>
         </div>
       </div>
+
+      {/* Icon Legend / Help Dialog */}
+      <Dialog open={showHelp} onOpenChange={setShowHelp}>
+        <DialogContent className="glass max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-primary" />
+              Layers Panel Guide
+            </DialogTitle>
+            <DialogDescription>
+              Understand what each tool and icon does in the layers panel.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-4 pt-2">
+              <section className="space-y-2">
+                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Top Actions</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <LegendItem icon={<Plus className="w-3.5 h-3.5" />} title="New Layer" desc="Create a new empty layer for your drawings." />
+                  <LegendItem icon={<Undo className="w-3.5 h-3.5" />} title="Undo" desc="Revert your last action on the canvas." />
+                  <LegendItem icon={<Redo className="w-3.5 h-3.5" />} title="Redo" desc="Restore an action you just undid." />
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Bulk Actions (When items selected)</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <LegendItem icon={<Trash2 className="w-3.5 h-3.5 text-destructive" />} title="Delete Selection" desc="Remove all selected layers and shapes." />
+                  <LegendItem icon={<FolderPlus className="w-3.5 h-3.5" />} title="Group Selection" desc="Nest all selected items into a new project/group." />
+                  <LegendItem icon={<LayersIcon className="w-3.5 h-3.5 rotate-180" />} title="Ungroup" desc="Release items from a project back to its parent." />
+                  <LegendItem icon={<Eye className="w-3.5 h-3.5" />} title="Toggle Visibility" desc="Show or hide all selected items at once." />
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Item Controls</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <LegendItem icon={<GripVertical className="w-3.5 h-3.5" />} title="Drag Handle" desc="Drag vertically to reorder. Drag horizontally (Left/Right) to change nesting depth." />
+                  <LegendItem icon={<ChevronRight className="w-3.5 h-3.5" />} title="Expand/Collapse" desc="Show or hide the contents of a project." />
+                  <LegendItem icon={<Checkbox className="w-3.5 h-3.5" />} title="Selection Box" desc="Tag multiple items for bulk editing operations." />
+                  <LegendItem icon={<MoreVertical className="w-3.5 h-3.5" />} title="Action Menu" desc="Rename, Duplicate, or Move items individually." />
+                </div>
+              </section>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+// Internal Legend Item Component
+const LegendItem = ({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) => (
+  <div className="flex gap-3 p-2 rounded-lg bg-secondary/20 border border-border/20">
+    <div className="shrink-0 w-8 h-8 rounded bg-background flex items-center justify-center border border-border/40 shadow-sm">
+      {icon}
+    </div>
+    <div className="flex-1 space-y-0.5">
+      <div className="text-[11px] font-bold text-foreground leading-none">{title}</div>
+      <div className="text-[10px] text-muted-foreground leading-relaxed">{desc}</div>
+    </div>
+  </div>
+);

@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { LayerNodeData } from "@/lib/layer-tree";
 import { FabricObject } from "fabric";
 import { ShapeItem } from "./ShapeItem";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, memo } from "react";
 
 interface LayerTreeItemProps {
     node: LayerNodeData;
@@ -42,7 +42,7 @@ interface LayerTreeItemProps {
     lastOriginId: string | null;
 }
 
-export const LayerTreeItem = ({
+export const LayerTreeItem = memo(({
     node,
     depth,
     onToggleExpand,
@@ -67,6 +67,8 @@ export const LayerTreeItem = ({
     lastDroppedId,
     lastOriginId
 }: LayerTreeItemProps) => {
+    const isDraggable = node.id !== 'root_project' && node.id !== 'layer_base';
+
     const {
         attributes,
         listeners,
@@ -74,7 +76,11 @@ export const LayerTreeItem = ({
         transform,
         transition,
         isDragging
-    } = useSortable({ id: node.id, data: { type: 'node', node } });
+    } = useSortable({
+        id: node.id,
+        data: { type: 'node', node },
+        disabled: !isDraggable
+    });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -99,7 +105,7 @@ export const LayerTreeItem = ({
 
     // Actions State
     const [swipeX, setSwipeX] = useState(0);
-    const dragX = useRef(0);
+    const dragY = useRef(0);
     const startX = useRef(0);
     const isSwiping = useRef(false);
     const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -130,18 +136,20 @@ export const LayerTreeItem = ({
         }, 600);
 
         startX.current = e.clientX;
-        dragX.current = e.clientY; // Track Y for vertical scroll detection
+        dragY.current = e.clientY; // Track Y for vertical scroll detection
         isSwiping.current = true;
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
-        if (!isSwiping.current || isDragging) return; // Don't swipe if DnD dragging (controlled by dnd-kit via handle)
+        if (!isSwiping.current || isDragging) return;
 
         const deltaX = e.clientX - startX.current;
-        const deltaY = e.clientY - dragX.current;
+        const deltaY = e.clientY - dragY.current;
 
-        // If vertical movement is dominant, this is a scroll, not a swipe
-        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        // 1. SCROLL GUARD (EXTREME):
+        // If we move vertically even a little bit (4px) before moving horizontally much,
+        // we assume it's a scroll or reorder-drag and KILL the swipe immediately.
+        if (Math.abs(deltaY) > 4 && Math.abs(deltaX) < 10) {
             isSwiping.current = false;
             setSwipeX(0);
             if (longPressTimer.current) {
@@ -151,17 +159,31 @@ export const LayerTreeItem = ({
             return;
         }
 
-        if (Math.abs(deltaX) > 5) {
+        // 2. HORIZONTAL INTENT CHECK:
+        // We only start "swiping" the UI if the user has moved at least 25px horizontally
+        // AND the movement is strongly horizontal (at least 3x more than vertical).
+        if (Math.abs(deltaX) < 25) return;
+
+        if (Math.abs(deltaX) > Math.abs(deltaY) * 3) {
+            // Cancel long press if it's a clear swipe
             if (longPressTimer.current) {
                 clearTimeout(longPressTimer.current);
                 longPressTimer.current = null;
             }
-        }
 
-        // Only allow left swipe (negative deltaX)
-        if (deltaX < 0 && Math.abs(deltaX) < 100) {
-            setSwipeX(deltaX);
-        } else if (deltaX >= 0) {
+            // Calculate swipe position, offsetting by a 10px "grace" area to avoid jump
+            const effectiveDelta = deltaX < 0 ? deltaX + 15 : deltaX - 15;
+
+            // Only allow left-to-right swipe (negative deltaX) to reveal delete
+            if (effectiveDelta < 0 && effectiveDelta > -120) {
+                setSwipeX(effectiveDelta);
+            } else if (effectiveDelta >= 0) {
+                setSwipeX(0);
+            }
+        } else {
+            // If movement is diagonal but doesn't meet the 3x horizontal ratio,
+            // we treat it as a potential scroll/drag and disable swipe.
+            isSwiping.current = false;
             setSwipeX(0);
         }
     };
@@ -171,21 +193,20 @@ export const LayerTreeItem = ({
             clearTimeout(longPressTimer.current);
             longPressTimer.current = null;
         }
-        isSwiping.current = false;
 
-        const delta = e.clientX - startX.current;
-        if (delta < -40) {
-            // Swiped Left far enough - keep it open
-            setSwipeX(-80); // Fixed position showing delete
+        // Final check: if it was a deep swipe, "stick" it
+        if (swipeX < -40) {
+            setSwipeX(-80);
 
-            // Auto-close after 3 seconds
+            // Auto close after several seconds of inactivity
             setTimeout(() => {
                 setSwipeX(0);
-            }, 3000);
+            }, 5000);
         } else {
-            // Not swiped far enough - close immediately
             setSwipeX(0);
         }
+
+        isSwiping.current = false;
     };
 
     return (
@@ -195,7 +216,7 @@ export const LayerTreeItem = ({
                 ...style,
                 transition: isDragging ? 'none' : transition,
                 willChange: 'transform',
-                paddingLeft: `${depth * 12}px`,
+                paddingLeft: `${Math.max(0, depth - 2) * 12}px`,
                 position: 'relative',
             }}
             className={cn(
@@ -225,27 +246,23 @@ export const LayerTreeItem = ({
                 {/* Node Header */}
                 <div
                     className={cn(
-                        "group flex items-center gap-1 p-1.5 rounded-md bg-background hover:bg-accent/5 select-none relative z-10",
+                        "group flex items-center gap-2 py-1.5 pr-2 pl-0 rounded-md bg-background hover:bg-accent/5 select-none relative z-10 cursor-pointer active:bg-accent/10 transition-colors",
                         isHighlighted && "ring-2 ring-primary animate-pulse-neon shadow-glow"
                     )}
-                    style={{ transform: `translateX(${swipeX}px)` }}
+                    style={{
+                        transform: `translateX(${swipeX}px)`,
+                        touchAction: 'pan-y'
+                    }}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
                     onPointerCancel={handlePointerUp}
+                    onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button') || target.closest('input') || target.closest('[data-drag-handle]')) return;
+                        onToggleSelect?.();
+                    }}
                 >
-                    {/* Explicit Drag Handle */}
-                    <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 -ml-1 text-muted-foreground/50 hover:text-foreground touch-none shrink-0">
-                        <GripVertical className="w-3.5 h-3.5" />
-                    </div>
-
-                    <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={onToggleSelect}
-                        className="h-3.5 w-3.5 ml-1 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-
                     {/* Collapse Toggle */}
                     <Button
                         variant="ghost"
@@ -257,6 +274,22 @@ export const LayerTreeItem = ({
                             node.expanded ? <ChevronDown className="w-3.5 h-3.5 opacity-70" /> : <ChevronRight className="w-3.5 h-3.5 opacity-70" />
                         ) : <span className="w-3.5" />}
                     </Button>
+
+                    {/* Explicit Drag Handle */}
+                    {isDraggable && (
+                        <div {...attributes} {...listeners} data-drag-handle className="cursor-grab active:cursor-grabbing p-2 text-muted-foreground/50 hover:text-foreground touch-none shrink-0">
+                            <GripVertical className="w-3.5 h-3.5" />
+                        </div>
+                    )}
+
+                    {isDraggable && (
+                        <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={onToggleSelect}
+                            className="h-3.5 w-3.5 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    )}
 
                     {/* Icon & Name */}
                     <div className="flex items-center gap-2 flex-1 min-w-0 p-0.5 rounded">
@@ -326,4 +359,4 @@ export const LayerTreeItem = ({
             </div>
         </div>
     );
-};
+});
